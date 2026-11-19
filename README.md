@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Host Pilot — Hostel Management System
 
 Host Pilot is a modern, secure, responsive web-based Hostel Management System designed to centralize and streamline hostel operations for administrators and students.
