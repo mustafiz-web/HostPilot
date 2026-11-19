@@ -1,0 +1,383 @@
+// Host Pilot — Prisma Schema
+// Database: MySQL
+// ORM: Prisma 6.4.1
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------
+// Enums
+// ----------------------------------------------------
+
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+  EXPELLED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AdmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+enum RoomType {
+  SINGLE
+  DOUBLE
+  QUAD
+}
+
+enum RoomStatus {
+  AVAILABLE
+  FULL
+  MAINTENANCE
+}
+
+enum BedStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+}
+
+enum AllocationStatus {
+  ACTIVE
+  VACATED
+  TRANSFERRED
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIAL
+  DUE
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  BKASH
+  NAGAD
+}
+
+enum ComplaintCategory {
+  PLUMBING
+  ELECTRICAL
+  CLEANING
+  DINING
+  WIFI
+  FURNITURE
+  OTHER
+}
+
+enum ComplaintPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ComplaintStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+enum NoticeStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ----------------------------------------------------
+// Models
+// ----------------------------------------------------
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         Role       @default(STUDENT)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  student            Student?
+  reviewedAdmissions Admission[]      @relation("AdmissionReviewer")
+  allocatedRooms     RoomAllocation[] @relation("AllocationAuthor")
+  recordedPayments   Payment[]        @relation("PaymentRecorder")
+  recordedExpenses   Expense[]        @relation("ExpenseRecorder")
+  createdNotices     Notice[]         @relation("NoticeAuthor")
+  auditLogs          AuditLog[]
+
+  @@index([email])
+  @@index([role, status])
+}
+
+model Student {
+  id          String        @id @default(uuid())
+  userId      String        @unique
+  user        User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  studentCode String        @unique
+  phone       String
+  department  String
+  rollNumber  String
+  session     String
+  batch       String
+  bloodGroup  String?
+  address     String
+  dateOfBirth DateTime?
+  status      StudentStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  guardians   Guardian[]
+  allocations RoomAllocation[]
+  payments    Payment[]
+  complaints  Complaint[]
+  admission   Admission?
+
+  @@index([studentCode])
+  @@index([status])
+  @@index([department])
+}
+
+model Guardian {
+  id               String   @id @default(uuid())
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  name             String
+  relationship     String
+  phone            String
+  emergencyContact String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([studentId])
+}
+
+model Admission {
+  id                String          @id @default(uuid())
+  applicationNumber String          @unique
+  applicantName     String
+  email             String
+  phone             String
+  gender            Gender          @default(MALE)
+  dateOfBirth       DateTime
+  bloodGroup        String?
+  address           String
+  preferredRoomType RoomType        @default(DOUBLE)
+  guardianName      String
+  guardianRelation  String
+  guardianPhone     String
+  status            AdmissionStatus @default(PENDING)
+  appliedAt         DateTime        @default(now())
+  reviewedAt        DateTime?
+  reviewedByUserId  String?
+  reviewedByUser    User?           @relation("AdmissionReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  decisionNote      String?
+  studentId         String?         @unique
+  student           Student?        @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([appliedAt])
+  @@index([email])
+}
+
+model Room {
+  id          String     @id @default(uuid())
+  roomNumber  String     @unique
+  floor       Int
+  capacity    Int
+  roomType    RoomType   @default(DOUBLE)
+  monthlyRent Decimal    @db.Decimal(12, 2)
+  status      RoomStatus @default(AVAILABLE)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  beds Bed[]
+
+  @@index([floor])
+  @@index([status])
+  @@index([roomType])
+}
+
+model Bed {
+  id        String    @id @default(uuid())
+  roomId    String
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  bedCode   String
+  status    BedStatus @default(AVAILABLE)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  allocations RoomAllocation[]
+
+  @@unique([roomId, bedCode])
+  @@index([status])
+}
+
+model RoomAllocation {
+  id                String           @id @default(uuid())
+  studentId         String
+  student           Student          @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  bedId             String
+  bed               Bed              @relation(fields: [bedId], references: [id], onDelete: Restrict)
+  startDate         DateTime
+  endDate           DateTime?
+  status            AllocationStatus @default(ACTIVE)
+  allocatedByUserId String
+  allocatedByUser   User             @relation("AllocationAuthor", fields: [allocatedByUserId], references: [id], onDelete: Restrict)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([studentId])
+  @@index([bedId])
+  @@index([status])
+}
+
+model Payment {
+  id                   String        @id @default(uuid())
+  studentId            String
+  student              Student       @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  billingPeriod        String
+  amount               Decimal       @db.Decimal(12, 2)
+  paidAmount           Decimal       @db.Decimal(12, 2)
+  status               PaymentStatus @default(DUE)
+  paymentMethod        PaymentMethod?
+  receiptNumber        String        @unique
+  transactionReference String?
+  paidAt               DateTime?
+  recordedByUserId     String?
+  recordedByUser       User?         @relation("PaymentRecorder", fields: [recordedByUserId], references: [id], onDelete: SetNull)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@unique([studentId, billingPeriod])
+  @@index([studentId])
+  @@index([billingPeriod])
+  @@index([status])
+  @@index([paidAt])
+}
+
+model ExpenseCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  expenses Expense[]
+
+  @@index([isActive])
+}
+
+model Expense {
+  id               String          @id @default(uuid())
+  categoryId       String
+  category         ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  title            String
+  amount           Decimal         @db.Decimal(12, 2)
+  description      String?
+  expenseDate      DateTime
+  recordedByUserId String
+  recordedByUser   User            @relation("ExpenseRecorder", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([categoryId])
+  @@index([expenseDate])
+}
+
+model Complaint {
+  id          String            @id @default(uuid())
+  studentId   String
+  student     Student           @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  title       String
+  category    ComplaintCategory @default(OTHER)
+  priority    ComplaintPriority @default(MEDIUM)
+  description String            @db.Text
+  status      ComplaintStatus   @default(PENDING)
+  adminNote   String?           @db.Text
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  resolvedAt  DateTime?
+
+  @@index([studentId])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+}
+
+model Notice {
+  id              String       @id @default(uuid())
+  title           String
+  content         String       @db.Text
+  category        String       @default("GENERAL")
+  isPinned        Boolean      @default(false)
+  status          NoticeStatus @default(DRAFT)
+  publishedAt     DateTime?
+  createdByUserId String
+  createdByUser   User         @relation("NoticeAuthor", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([status])
+  @@index([publishedAt])
+  @@index([isPinned])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String?
+  actorUser   User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  action      String
+  entityType  String
+  entityId    String?
+  metadata    String?  @db.Text
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+model HostelSettings {
+  id            String   @id @default(uuid())
+  hostelName    String   @default("Host Pilot Hostel")
+  address       String
+  contactPhone  String
+  contactEmail  String
+  currencyCode  String   @default("BDT")
+  timezone      String   @default("Asia/Dhaka")
+  gateCloseTime String   @default("10:00 PM")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

@@ -1,0 +1,136 @@
+{
+  "brand": {
+    "name": "Host Pilot",
+    "tagline": "Modern Hostel Management System"
+  },
+  "nav": {
+    "home": "Home",
+    "about": "About",
+    "rooms": "Rooms",
+    "facilities": "Facilities",
+    "admission": "Apply for Admission",
+    "notices": "Notices",
+    "contact": "Contact",
+    "login": "Sign In",
+    "dashboard": "Dashboard"
+  },
+  "hero": {
+    "badge": "Smart & Organized Living",
+    "title": "Welcome to Host Pilot",
+    "subtitle": "A centralized, modern, and transparent hostel management experience for students and administration.",
+    "cta_apply": "Apply for Seat",
+    "cta_explore": "Explore Rooms"
+  },
+  "features": {
+    "room_title": "Room & Bed Allocation",
+    "room_desc": "Transparent seat availability and fair allocation tracking.",
+    "payment_title": "Clean Billing & Receipts",
+    "payment_desc": "Keep track of all payments, monthly dues, and downloadable receipts.",
+    "complaint_title": "Quick Complaints",
+    "complaint_desc": "Direct issue reporting with live status tracking for fast resolutions."
+  },
+  "about": {
+    "title": "About Host Pilot",
+    "subtitle": "Dedicated to providing safe, comfortable, and academically supportive accommodation for students.",
+    "vision_title": "Our Mission & Vision",
+    "vision_desc": "Host Pilot was built to eliminate hostel mismanagement, seat allocation disputes, and obscure fee calculations through digital transparency, fairness, and accountability.",
+    "team_title": "Hostel Administration Team",
+    "team_desc": "Meet our administration staff and wardens dedicated to student welfare and security.",
+    "rules_title": "Rules & Code of Conduct",
+    "rule_1": "Gate Closure: The main hostel gates close strictly at 9:30 PM every night.",
+    "rule_2": "Quiet Hours: Study and quiet hours are maintained from 10:00 PM to 6:00 AM.",
+    "rule_3": "Visitor Policy: Outside guests are permitted only in the designated visitor lounge during visiting hours.",
+    "rule_4": "Cleanliness: Students are expected to keep their rooms and common areas clean."
+  },
+  "rooms": {
+    "title": "Hostel Rooms & Availability",
+    "subtitle": "Browse available room categories, explore bed capacities, and find the perfect space for your studies.",
+    "filter_all": "All Rooms",
+    "filter_single": "Single Bed",
+    "filter_double": "Double Shared",
+    "filter_quad": "Quad Shared",
+    "available": "Available",
+    "full": "Fully Occupied",
+    "beds_available": "beds available out of",
+    "monthly_rent": "Monthly Rent",
+    "view_details": "View Details",
+    "apply_now": "Apply for this Room",
+    "modal_title": "Room Details & Amenities"
+  },
+  "facilities": {
+    "title": "Hostel Facilities & Amenities",
+    "subtitle": "Everything you need for a comfortable, healthy, and focused academic life.",
+    "meal_schedule_title": "Weekly Dining Schedule",
+    "meal_schedule_desc": "Hygeinic 3-time meal plans tailored to provide balanced nutrition.",
+    "breakfast": "Breakfast (7:30 AM - 9:00 AM)",
+    "lunch": "Lunch (1:00 PM - 2:30 PM)",
+    "dinner": "Dinner (8:00 PM - 9:30 PM)"
+  },
+  "admission": {
+    "title": "Online Admission Application",
+    "subtitle": "Submit your seat application directly online. No prior account registration is required.",
+    "guidelines_title": "Admission Guidelines",
+    "guideline_1": "Fill out all required applicant and guardian details accurately.",
+    "guideline_2": "Once submitted, the administration team reviews the application.",
+    "guideline_3": "Upon approval, your Student ID and login credentials will be issued.",
+    "form_title": "Application Form",
+    "name_label": "Full Student Name *",
+    "email_label": "Email Address *",
+    "phone_label": "Phone Number *",
+    "dob_label": "Date of Birth *",
+    "gender_label": "Gender *",
+    "room_pref_label": "Preferred Room Category *",
+    "guardian_name_label": "Guardian's Full Name *",
+    "guardian_phone_label": "Guardian's Phone Number *",
+    "address_label": "Permanent Address *",
+    "submit_btn": "Submit Admission Application",
+    "disclaimer": "Notice: This form operates in UI prototype mode with simulated client validation. Real data persistence will be enabled in Phase 7.",
+    "success_title": "Application Submitted Successfully!",
+    "success_msg": "Your application has been received and assigned reference number:",
+    "apply_another": "Submit Another Application"
+  },
+  "contact": {
+    "title": "Contact & Support",
+    "subtitle": "Reach out to hostel management for enquiries, visits, or emergency assistance.",
+    "form_title": "Send a Message",
+    "name": "Your Name",
+    "email": "Your Email",
+    "subject": "Subject",
+    "message": "Message",
+    "send_btn": "Send Inquiry",
+    "emergency_title": "24/7 Emergency Helpline",
+    "emergency_desc": "For immediate medical or security support, contact the warden on duty directly."
+  },
+  "notices": {
+    "title": "Public Notice Board",
+    "subtitle": "Stay informed about hostel updates, semester admissions, events, and dining schedules.",
+    "search_placeholder": "Search notices by keyword...",
+    "all_categories": "All Notices",
+    "pinned": "Pinned Notice",
+    "read_more": "Read Full Notice"
+  },
+  "auth": {
+    "login_title": "Sign In to Host Pilot",
+    "login_subtitle": "Select your portal role and enter your credentials.",
+    "student_tab": "Student Portal",
+    "admin_tab": "Admin Panel",
+    "email_label": "Email Address",
+    "password_label": "Password",
+    "login_btn": "Sign In",
+    "forgot_pwd": "Forgot password?",
+    "demo_hint": "Quick Fill Demo Credentials:",
+    "forgot_title": "Recover Account Password",
+    "forgot_subtitle": "In MVP, password resets are facilitated by the hostel administration.",
+    "forgot_btn": "Request Password Reset",
+    "back_to_login": "Back to Sign In"
+  },
+  "common": {
+    "language": "Language",
+    "bangla": "বাংলা",
+    "english": "English",
+    "currency": "BDT",
+    "loading": "Loading...",
+    "student_portal": "Student Portal",
+    "admin_portal": "Admin Portal"
+  }
+}
