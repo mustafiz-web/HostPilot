@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Host Pilot — Hostel Management System
 
 Host Pilot is a modern, secure, responsive web-based Hostel Management System designed to centralize and streamline hostel operations for administrators and students.
@@ -63,3 +64,15 @@ For detailed specifications, consult the files in `docs/`:
 - [Database Design](file:///docs/database-design.md)
 - [API Documentation](file:///docs/api-documentation.md)
 - [Development Roadmap](file:///docs/development-roadmap.md)
+=======
+# HostPilot
+A hostel management webapp
+<br> <br> <br>
+Sherpur Polytechnic Institute <br>
+Computer Science and Technology <br>
+6th-1st <br>
+Mustafizur Rahman-866441 <br>
+Sams Sanian Ahamod- 866461 <br>
+MD.Shaharia Rizve Srabon- 866473 <br>
+Fahmena Afrin Ritu- 866433 <br>
+>>>>>>> 37f4c91128e5c74c3dbd3bd1de2066f479820fe4
