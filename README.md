@@ -63,16 +63,16 @@ For detailed specifications, consult the files in `docs/`:
 - [Database Design](file:///docs/database-design.md)
 - [API Documentation](file:///docs/api-documentation.md)
 - [Development Roadmap](file:///docs/development-roadmap.md)
-=======
-# HostPilot
-A hostel management webapp
-<br> <br> <br>
-Sherpur Polytechnic Institute <br>
-Computer Science and Technology <br>
-6th-1st <br>
-Mustafizur Rahman-866441 <br>
-Sams Sanian Ahamod- 866461 <br>
-MD.Shaharia Rizve Srabon- 866473 <br>
-Fahmena Afrin Ritu- 866433 <br>
-Mst Fahima(866437) <br>
->>>>>>> 37f4c91128e5c74c3dbd3bd1de2066f479820fe4
+
+## Project Information
+
+**Institute:** Sherpur Polytechnic Institute  
+**Department:** Computer Science and Technology  
+**Session:** 6th-1st  
+
+**Project Team Members:**
+- Mustafizur Rahman (Roll: 866441)
+- Sams Sanian Ahamod (Roll: 866461)
+- MD. Shaharia Rizve Srabon (Roll: 866473)
+- Fahmena Afrin Ritu (Roll: 866433)
+- Mst Fahima (Roll: 866437)
