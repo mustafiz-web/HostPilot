@@ -1,16 +1,24 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   MessageSquareWarning,
   Plus,
   CheckCircle2,
   Clock,
   Eye,
+  AlertCircle,
+  RefreshCw,
+  Loader2,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog,
   DialogContent,
@@ -19,22 +27,74 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  INITIAL_STUDENT_COMPLAINTS,
-  type MockStudentComplaint,
-} from './mock-data/student-mock-data';
+import { apiClient } from '@/lib/api-client';
+
+export interface StudentComplaintItem {
+  id: string;
+  title: string;
+  category: 'PLUMBING' | 'ELECTRICAL' | 'CLEANING' | 'DINING' | 'WIFI' | 'FURNITURE' | 'OTHER';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  description: string;
+  status: 'PENDING' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED';
+  adminNote?: string | null;
+  createdAt: string;
+  resolvedAt?: string | null;
+}
 
 export const StudentComplaintsPage: React.FC = () => {
-  const [complaints, setComplaints] = useState<MockStudentComplaint[]>(INITIAL_STUDENT_COMPLAINTS);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'IN_PROGRESS' | 'RESOLVED'>('ALL');
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [viewComplaint, setViewComplaint] = useState<MockStudentComplaint | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [viewComplaint, setViewComplaint] = useState<StudentComplaintItem | null>(null);
 
   const [newComplaint, setNewComplaint] = useState({
     title: '',
-    category: 'PLUMBING' as MockStudentComplaint['category'],
-    priority: 'MEDIUM' as MockStudentComplaint['priority'],
+    category: 'PLUMBING' as StudentComplaintItem['category'],
+    priority: 'MEDIUM' as StudentComplaintItem['priority'],
     description: '',
+  });
+
+  // Query: Student's own complaints from real MySQL API
+  const {
+    data: complaintsResponse,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['student-complaints'],
+    queryFn: async () => {
+      const res = await apiClient.get<StudentComplaintItem[]>('/complaints/me');
+      return res;
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const complaints: StudentComplaintItem[] = complaintsResponse?.data || [];
+
+  // Mutation: Submit complaint
+  const addComplaintMutation = useMutation({
+    mutationFn: async (payload: typeof newComplaint) => {
+      const res = await apiClient.post<StudentComplaintItem>('/complaints', payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student-complaints'] });
+      setAddModalOpen(false);
+      setAddError(null);
+      setNewComplaint({
+        title: '',
+        category: 'PLUMBING',
+        priority: 'MEDIUM',
+        description: '',
+      });
+    },
+    onError: (err: any) => {
+      setAddError(err.message || 'অভিযোগ জমা দেওয়া সম্ভব হয়নি');
+    },
   });
 
   const filtered = complaints.filter((c) => {
@@ -44,23 +104,21 @@ export const StudentComplaintsPage: React.FC = () => {
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const created: MockStudentComplaint = {
-      id: `cmp-${Date.now()}`,
-      title: newComplaint.title,
-      category: newComplaint.category,
-      priority: newComplaint.priority,
-      status: 'PENDING',
-      submittedAt: '১৮ নভেম্বর, ২০২৬',
-      description: newComplaint.description,
-    };
-    setComplaints([created, ...complaints]);
-    setAddModalOpen(false);
-    setNewComplaint({
-      title: '',
-      category: 'PLUMBING',
-      priority: 'MEDIUM',
-      description: '',
-    });
+    setAddError(null);
+    addComplaintMutation.mutate(newComplaint);
+  };
+
+  const getPriorityBadgeClass = (p: string) => {
+    switch (p) {
+      case 'URGENT':
+        return 'bg-rose-100 text-rose-800 border-rose-300';
+      case 'HIGH':
+        return 'bg-amber-100 text-amber-800 border-amber-300';
+      case 'MEDIUM':
+        return 'bg-blue-100 text-blue-800 border-blue-300';
+      default:
+        return 'bg-slate-100 text-slate-700 border-slate-300';
+    }
   };
 
   return (
@@ -70,15 +128,21 @@ export const StudentComplaintsPage: React.FC = () => {
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <MessageSquareWarning className="w-6 h-6 text-emerald-600" />
-            <span>আমার দাখিলকৃত অভিযোগ (My Complaints)</span>
+            <span>{t('student.complaints.title')}</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            রুমের মেইনটেন্যান্স, ওয়াইফাই, ইলেকট্রিক্যাল ও ডাইনিং সংক্রান্ত অভিযোগ ও অগ্রগতি ট্র্যাকিং
+            {t('student.complaints.subtitle')}
           </p>
         </div>
-        <Button onClick={() => setAddModalOpen(true)} className="gap-2 shadow-xs self-start sm:self-auto">
+        <Button
+          onClick={() => {
+            setAddError(null);
+            setAddModalOpen(true);
+          }}
+          className="gap-2 shadow-xs self-start sm:self-auto bg-emerald-600 hover:bg-emerald-700"
+        >
           <Plus className="w-4 h-4" />
-          <span>নতুন অভিযোগ দাখিল করুন</span>
+          <span>{t('student.complaints.btn_new')}</span>
         </Button>
       </div>
 
@@ -96,19 +160,19 @@ export const StudentComplaintsPage: React.FC = () => {
           </Button>
           <Button
             size="sm"
-            variant={statusFilter === 'IN_PROGRESS' ? 'default' : 'outline'}
-            onClick={() => setStatusFilter('IN_PROGRESS')}
-            className="text-xs rounded-full h-8"
-          >
-            প্রক্রিয়াধীন ({complaints.filter((c) => c.status === 'IN_PROGRESS').length})
-          </Button>
-          <Button
-            size="sm"
             variant={statusFilter === 'PENDING' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('PENDING')}
             className="text-xs rounded-full h-8"
           >
             অপেক্ষমান ({complaints.filter((c) => c.status === 'PENDING').length})
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === 'IN_PROGRESS' ? 'default' : 'outline'}
+            onClick={() => setStatusFilter('IN_PROGRESS')}
+            className="text-xs rounded-full h-8"
+          >
+            প্রক্রিয়াধীন ({complaints.filter((c) => c.status === 'IN_PROGRESS').length})
           </Button>
           <Button
             size="sm"
@@ -121,64 +185,92 @@ export const StudentComplaintsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Complaints List Cards */}
-      <div className="space-y-4">
-        {filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
-            <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
-            <h3 className="font-bold text-slate-700">কোনো অভিযোগ রেকর্ড নেই</h3>
-            <p className="text-xs text-slate-400">এই ফিল্টারে কোনো অভিযোগ পাওয়া যায়নি।</p>
-          </div>
-        ) : (
-          filtered.map((item) => (
+      {/* Complaints List Feed */}
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+          ))}
+        </div>
+      ) : isError ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4">
+          <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
+          <h3 className="text-lg font-bold text-slate-800">অভিযোগ লোড করা যায়নি</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            {(error as any)?.message || 'সার্ভার থেকে অভিযোগের তথ্য পাওয়া যায়নি।'}
+          </p>
+          <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
+            <RefreshCw className="w-4 h-4" />
+            <span>পুনরায় চেষ্টা করুন</span>
+          </Button>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
+          <FileText className="w-12 h-12 text-slate-300 mx-auto" />
+          <h4 className="text-base font-bold text-slate-800">কোনো অভিযোগ দাখিল করা হয়নি</h4>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            আপনার রুম বা হোস্টেল চত্বরে কোনো সমস্যা থাকলে ওপরের "নতুন অভিযোগ দাখিল" বাটনে চাপুন।
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filtered.map((item) => (
             <div
               key={item.id}
-              className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-3 hover:border-slate-300 transition-all"
+              className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs hover:border-slate-300 transition-all space-y-3"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                    {item.category}
-                  </span>
-                  <h3 className="font-bold text-base text-slate-900">{item.title}</h3>
-                </div>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      item.priority === 'URGENT' || item.priority === 'HIGH'
-                        ? 'bg-rose-100 text-rose-800'
-                        : 'bg-slate-100 text-slate-700'
-                    }`}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getPriorityBadgeClass(
+                      item.priority
+                    )}`}
                   >
-                    অগ্রাধিকার: {item.priority}
+                    {item.priority === 'URGENT'
+                      ? 'জরুরি'
+                      : item.priority === 'HIGH'
+                      ? 'উচ্চ'
+                      : item.priority === 'MEDIUM'
+                      ? 'মাঝারি'
+                      : 'সাধারণ'}
+                  </span>
+                  <span className="text-xs font-mono font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                    {item.category}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400">
+                    {new Date(item.createdAt).toLocaleDateString('bn-BD')}
                   </span>
                   <StatusBadge status={item.status} />
                 </div>
               </div>
 
-              <p className="text-xs text-slate-600 leading-relaxed">{item.description}</p>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">{item.title}</h3>
+                <p className="text-xs text-slate-600 line-clamp-2 mt-1 leading-relaxed">
+                  {item.description}
+                </p>
+              </div>
 
               {item.adminNote && (
-                <div className="p-3 bg-emerald-50/80 rounded-xl border border-emerald-200/60 text-xs text-emerald-900 flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">প্রশাসনের গৃহীত পদক্ষেপ: </span>
-                    <span>{item.adminNote}</span>
-                  </div>
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
+                  <span className="font-bold flex items-center gap-1.5 text-emerald-950">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>প্রশাসনিক সমাধান নোট:</span>
+                  </span>
+                  <p className="text-emerald-800 leading-relaxed">{item.adminNote}</p>
                 </div>
               )}
 
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs text-slate-400">
-                <div className="flex items-center gap-4">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>দাখিল: {item.submittedAt}</span>
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>
+                    {item.status === 'RESOLVED'
+                      ? `সমাধানের তারিখ: ${item.resolvedAt ? new Date(item.resolvedAt).toLocaleDateString('bn-BD') : ''}`
+                      : 'প্রক্রিয়া চলমান'}
                   </span>
-                  {item.resolvedAt && (
-                    <span className="text-emerald-700 font-medium">
-                      সমাধান: {item.resolvedAt}
-                    </span>
-                  )}
                 </div>
                 <Button
                   variant="ghost"
@@ -191,13 +283,13 @@ export const StudentComplaintsPage: React.FC = () => {
                 </Button>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Add Complaint Modal */}
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>নতুন অভিযোগ দাখিল করুন</DialogTitle>
             <DialogDescription>
@@ -205,10 +297,17 @@ export const StudentComplaintsPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
 
+          {addError && (
+            <Alert variant="destructive" className="bg-rose-50 border-rose-200 text-rose-800 text-xs">
+              <AlertCircle className="w-4 h-4 text-rose-600" />
+              <AlertDescription>{addError}</AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleAddSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="complaintTitle" className="text-xs font-semibold">
-                অভিযোগের শিরোনাম
+                অভিযোগের শিরোনাম *
               </Label>
               <Input
                 id="complaintTitle"
@@ -219,7 +318,7 @@ export const StudentComplaintsPage: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="category" className="text-xs font-semibold">
                   ক্যাটাগরি
@@ -230,7 +329,7 @@ export const StudentComplaintsPage: React.FC = () => {
                   onChange={(e) =>
                     setNewComplaint({
                       ...newComplaint,
-                      category: e.target.value as MockStudentComplaint['category'],
+                      category: e.target.value as any,
                     })
                   }
                   className="w-full text-xs h-9 rounded-md border border-slate-200 px-2.5 bg-white"
@@ -255,7 +354,7 @@ export const StudentComplaintsPage: React.FC = () => {
                   onChange={(e) =>
                     setNewComplaint({
                       ...newComplaint,
-                      priority: e.target.value as MockStudentComplaint['priority'],
+                      priority: e.target.value as any,
                     })
                   }
                   className="w-full text-xs h-9 rounded-md border border-slate-200 px-2.5 bg-white"
@@ -270,7 +369,7 @@ export const StudentComplaintsPage: React.FC = () => {
 
             <div className="space-y-1.5">
               <Label htmlFor="desc" className="text-xs font-semibold">
-                সমস্যার বিস্তারিত বিবরণ
+                সমস্যার বিস্তারিত বিবরণ *
               </Label>
               <Textarea
                 id="desc"
@@ -282,15 +381,29 @@ export const StudentComplaintsPage: React.FC = () => {
               />
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
               <Button
                 type="button"
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => setAddModalOpen(false)}
               >
                 বাতিল
               </Button>
-              <Button type="submit">অভিযোগ জমা দিন</Button>
+              <Button
+                type="submit"
+                disabled={addComplaintMutation.isPending}
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
+              >
+                {addComplaintMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    <span>জমা হচ্ছে...</span>
+                  </>
+                ) : (
+                  <span>অভিযোগ জমা দিন</span>
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -299,7 +412,7 @@ export const StudentComplaintsPage: React.FC = () => {
       {/* View Complaint Modal */}
       {viewComplaint && (
         <Dialog open={!!viewComplaint} onOpenChange={(open) => !open && setViewComplaint(null)}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <div className="flex items-center gap-2 mb-1">
                 <StatusBadge status={viewComplaint.status} />
@@ -307,14 +420,14 @@ export const StudentComplaintsPage: React.FC = () => {
               </div>
               <DialogTitle className="text-base">{viewComplaint.title}</DialogTitle>
               <DialogDescription>
-                দাখিলের তারিখ: {viewComplaint.submittedAt}
+                দাখিলের তারিখ: {new Date(viewComplaint.createdAt).toLocaleDateString('bn-BD')}
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-2 text-xs text-slate-700">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
                 <span className="font-bold text-slate-900 block">বিবরণ:</span>
-                <p className="leading-relaxed text-slate-600">{viewComplaint.description}</p>
+                <p className="leading-relaxed text-slate-600 whitespace-pre-line">{viewComplaint.description}</p>
               </div>
 
               {viewComplaint.adminNote && (

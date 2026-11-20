@@ -15,6 +15,13 @@ router.get(
   (req, res, next) => paymentController.getMyPayments(req, res, next)
 );
 
+router.get(
+  '/my-payments',
+  authenticate,
+  authorize('STUDENT'),
+  (req, res, next) => paymentController.getMyPayments(req, res, next)
+);
+
 // 2. All Payments List (Admin Only)
 router.get(
   '/',
@@ -23,11 +30,11 @@ router.get(
   (req, res, next) => paymentController.getAllPayments(req, res, next)
 );
 
-// 3. Record Payment (Admin Only)
+// 3. Record / Pay Fee (Admin or Logged-in Student)
 router.post(
   '/',
   authenticate,
-  authorize('ADMIN'),
+  authorize('ADMIN', 'STUDENT'),
   validate(recordPaymentSchema),
   (req, res, next) => paymentController.recordPayment(req, res, next)
 );

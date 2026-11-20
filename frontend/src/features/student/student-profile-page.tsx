@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   User,
@@ -60,6 +61,7 @@ interface StudentProfileResponse {
 }
 
 export const StudentProfilePage: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editSuccess, setEditSuccess] = useState(false);
@@ -171,15 +173,15 @@ export const StudentProfilePage: React.FC = () => {
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <User className="w-6 h-6 text-emerald-600" />
-            <span>আমার ব্যক্তিগত প্রোফাইল (My Profile)</span>
+            <span>{t('student.profile.title')}</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            শিক্ষার্থীর প্রাতিষ্ঠানিক তথ্য, অভিভাবকের বিবরণ এবং যোগাযোগের ঠিকানা
+            {t('student.profile.subtitle')}
           </p>
         </div>
         <Button onClick={handleOpenEdit} className="gap-2 shadow-xs self-start sm:self-auto bg-emerald-600 hover:bg-emerald-700">
           <Edit className="w-4 h-4" />
-          <span>প্রোফাইল সম্পাদনা</span>
+          <span>{t('student.profile.btn_edit')}</span>
         </Button>
       </div>
 
@@ -387,7 +389,7 @@ export const StudentProfilePage: React.FC = () => {
                 />
               </div>
 
-              <DialogFooter className="gap-2 pt-2">
+              <DialogFooter className="gap-2 pt-2 flex-col sm:flex-row">
                 <Button type="button" variant="outline" size="sm" onClick={() => setEditModalOpen(false)}>
                   বাতিল
                 </Button>

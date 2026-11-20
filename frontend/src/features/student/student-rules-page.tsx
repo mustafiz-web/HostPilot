@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   BookOpen,
   Clock,
@@ -9,9 +10,33 @@ import {
   AlertTriangle,
   CheckCircle2,
 } from 'lucide-react';
-import { HOSTEL_RULES_DATA } from './mock-data/student-mock-data';
+
+const HOSTEL_RULES_DATA = {
+  gateClosingTime: 'রাত ১০:০০ টা (শুক্রবার ও ছুটির দিনে রাত ১০:৩০ টা)',
+  diningTimes: [
+    { meal: 'সকালের নাশতা (Breakfast)', time: 'সকাল ০৭:৩০ টা — সকাল ০৯:৩০ টা' },
+    { meal: 'দুপুরের খাবার (Lunch)', time: 'দুপুর ১২:৩০ টা — দুপুর ০২:৩০ টা' },
+    { meal: 'সান্ধ্য চা ও নাশতা (Evening Snacks)', time: 'বিকেল ০৫:৩০ টা — সন্ধ্যা ০৬:৩০ টা' },
+    { meal: 'রাতের খাবার (Dinner)', time: 'রাত ০৮:০০ টা — রাত ১০:০০ টা' },
+  ],
+  rulesList: [
+    'রাত ১০:০০ টার পর হোস্টেলের প্রধান ফটক বন্ধ থাকবে। বিশেষ প্রয়োজনে ওয়ার্ডেনের পূর্বানুমতি ব্যতিরেকে বিলম্ব গ্রহণযোগ্য নয়।',
+    'রুমের ভেতর কোনো প্রকার অতিরিক্ত উচ্চ ক্ষমতাসম্পন্ন হিটার, ইন্ডাকশন চুলা বা অবৈধ ইলেকট্রিক সরঞ্জাম ব্যবহার সম্পূর্ণ নিষিদ্ধ।',
+    'রাত ১১:০০ টা থেকে সকাল ০৬:০০ টা পর্যন্ত স্টাডি ও সাইলেন্স আওয়ার হিসেবে গণ্য হবে; কোনো ধরনের উচ্চশব্দ বা হইচই করা যাবে না।',
+    'হোস্টেল চত্বর সম্পূর্ণ ধূমপান ও মাদকমুক্ত এলাকা। যে কোনো অসদাচরণের জন্য সিট বরাদ্দ বাতিল ও বহিষ্কারের শাস্তিমূলক ব্যবস্থা গ্রহণ করা হবে।',
+    'বহিরাগত বা অনাবাসিক অতিথিকে রুমে রাখা সম্পূর্ণ বেআইনি। অভিভাবকগণ কেবল কমন লাউঞ্জে সাক্ষাৎ করতে পারবেন।',
+    'মাসিক সিট ভাড়া ও সার্ভিস চার্জ প্রতি মাসের ৭ তারিখের মধ্যে পরিশোধ করতে হবে।',
+  ],
+  emergencyContacts: [
+    { title: 'হোস্টেল সুপারিনটেনডেন্ট', name: 'অধ্যাপক ড. মুহাম্মদ আলমগীর', phone: '০১৭১১-১০০০০১', email: 'superintendent@campus.edu.bd' },
+    { title: 'সহকারী ওয়ার্ডেন (প্রশাসন ও শৃঙ্খলা)', name: 'জনাব কাজী মোসাদ্দেক হোসেন', phone: '০১৮১১-২০০০০২', email: 'warden.admin@campus.edu.bd' },
+    { title: 'ক্যাম্পাস মেডিকেল সেন্টার (২৪/৭ জরুরি)', name: 'মেডিকেল অফিসার অন-ডিউটি', phone: '০১৭২২-৩০০০০৩', email: 'medical@campus.edu.bd' },
+    { title: 'হোস্টেল প্রধান সিকিউরিটি পোস্ট', name: 'নিরাপত্তা নিয়ন্ত্রণ কক্ষ', phone: '০১৯৩৩-৪০০০০৪', email: 'security@campus.edu.bd' },
+  ],
+};
 
 export const StudentRulesPage: React.FC = () => {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -19,10 +44,10 @@ export const StudentRulesPage: React.FC = () => {
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-emerald-600" />
-            <span>হোস্টেল নিয়মাবলী ও তথ্য নির্দেশিকা (Rules & Guidelines)</span>
+            <span>{t('student.rules.title')}</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            আবাসিক শৃঙ্খলা, গেট বন্ধের সময়সূচি, ডাইনিং রুটিন ও জরুরি যোগাযোগ
+            {t('student.rules.subtitle')}
           </p>
         </div>
       </div>

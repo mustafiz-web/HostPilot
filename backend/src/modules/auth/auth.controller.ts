@@ -12,6 +12,19 @@ const COOKIE_OPTIONS = {
 };
 
 export class AuthController {
+  public async register(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await authService.registerStudent(req.body);
+      ApiResponse.created(
+        res,
+        result,
+        'নিবন্ধন সফলভাবে সম্পন্ন হয়েছে। আপনার অ্যাকাউন্টটি বর্তমানে অনুমোদনের অপেক্ষায় রয়েছে (Registration successful. Awaiting admin approval).'
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
   public async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email, password } = req.body;
@@ -55,6 +68,23 @@ export class AuthController {
         return next(new Error('User context missing'));
       }
       ApiResponse.success(res, req.user, 'Current user profile');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        return next(new Error('User context missing'));
+      }
+      const { currentPassword, newPassword } = req.body;
+      await authService.changePassword(req.user.id, currentPassword, newPassword);
+      ApiResponse.success(
+        res,
+        null,
+        'পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে (Password changed successfully)'
+      );
     } catch (error) {
       next(error);
     }

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ShieldCheck,
   KeyRound,
@@ -8,22 +9,26 @@ import {
   Eye,
   EyeOff,
   Lock,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { apiClient } from '@/lib/api-client';
 
 export const StudentSecurityPage: React.FC = () => {
+  const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword.length < 8) {
       setFeedback({ type: 'error', message: 'নতুন পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।' });
@@ -34,13 +39,30 @@ export const StudentSecurityPage: React.FC = () => {
       return;
     }
 
-    setFeedback({
-      type: 'success',
-      message: 'পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে! পরবর্তী লগইনে নতুন পাসওয়ার্ড ব্যবহার করুন।',
-    });
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+    try {
+      setIsSubmitting(true);
+      setFeedback(null);
+      await apiClient.patch('/auth/change-password', {
+        currentPassword,
+        newPassword,
+      });
+
+      setFeedback({
+        type: 'success',
+        message: 'পাসওয়ার্ড সফলভাবে ডাটাবেজে পরিবর্তিত হয়েছে! পরবর্তী লগইনে নতুন পাসওয়ার্ড ব্যবহার করুন।',
+      });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || 'পাসওয়ার্ড পরিবর্তন ব্যর্থ হয়েছে। বর্তমান পাসওয়ার্ড সঠিক কিনা পরীক্ষা করুন।';
+      setFeedback({
+        type: 'error',
+        message: errMsg,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -50,10 +72,10 @@ export const StudentSecurityPage: React.FC = () => {
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-emerald-600" />
-            <span>অ্যাকাউন্ট সিকিউরিটি ও পাসওয়ার্ড পরিবর্তন (Account Security)</span>
+            <span>{t('student.security.title')}</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            শিক্ষার্থী অ্যাকাউন্টের নিরাপত্তা নিশ্চিতকরণ, পাসওয়ার্ড পরিবর্তন ও লগইন সেশন ট্র্যাকিং
+            {t('student.security.subtitle')}
           </p>
         </div>
       </div>
@@ -165,9 +187,17 @@ export const StudentSecurityPage: React.FC = () => {
               </ul>
             </div>
 
-            <Button type="submit" className="gap-2 bg-emerald-600 hover:bg-emerald-700">
-              <Lock className="w-4 h-4" />
-              <span>পাসওয়ার্ড আপডেট করুন</span>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full sm:w-auto gap-2 bg-emerald-600 hover:bg-emerald-700"
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Lock className="w-4 h-4" />
+              )}
+              <span>{isSubmitting ? 'আপডেট করা হচ্ছে...' : 'পাসওয়ার্ড আপডেট করুন'}</span>
             </Button>
           </form>
         </div>

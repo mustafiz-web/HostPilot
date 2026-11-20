@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users,
   Search,
   Plus,
   Eye,
+  Pencil,
   CheckCircle2,
   XCircle,
   Phone,
@@ -71,6 +73,7 @@ interface StudentRecord {
 }
 
 export const StudentsPage: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -78,6 +81,24 @@ export const StudentsPage: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+
+  // Edit Student Form State
+  const [editingStudent, setEditingStudent] = useState<StudentRecord | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    phone: '',
+    department: '',
+    rollNumber: '',
+    session: '',
+    batch: '',
+    bloodGroup: '',
+    address: '',
+    guardianName: '',
+    guardianRelation: '',
+    guardianPhone: '',
+    emergencyContact: '',
+  });
 
   // New Student Form State
   const [newStudent, setNewStudent] = useState({
@@ -151,6 +172,52 @@ export const StudentsPage: React.FC = () => {
     },
   });
 
+  // Mutation: Update existing student
+  const updateStudentMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: typeof editForm }) => {
+      const res = await apiClient.patch<StudentRecord>(`/students/${id}`, payload);
+      return res.data;
+    },
+    onSuccess: (updatedStudent) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
+      setEditingStudent(null);
+      setEditError(null);
+      if (selectedStudent?.id === updatedStudent.id) {
+        setSelectedStudent(updatedStudent);
+      }
+    },
+    onError: (err: any) => {
+      setEditError(err.message || 'শিক্ষার্থীর তথ্য আপডেট করতে সমস্যা হয়েছে');
+    },
+  });
+
+  const handleOpenEdit = (student: StudentRecord) => {
+    setEditingStudent(student);
+    setEditError(null);
+    const g = student.guardians?.[0];
+    setEditForm({
+      name: student.user?.name || '',
+      phone: student.phone || '',
+      department: student.department || '',
+      rollNumber: student.rollNumber || '',
+      session: student.session || '',
+      batch: student.batch || '',
+      bloodGroup: student.bloodGroup || '',
+      address: student.address || '',
+      guardianName: g?.name || '',
+      guardianRelation: g?.relationship || '',
+      guardianPhone: g?.phone || '',
+      emergencyContact: (g as any)?.emergencyContact || '',
+    });
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+    setEditError(null);
+    updateStudentMutation.mutate({ id: editingStudent.id, payload: editForm });
+  };
+
   // Mutation: Toggle status
   const toggleStatusMutation = useMutation({
     mutationFn: async ({ id, newStatus }: { id: string; newStatus: 'ACTIVE' | 'INACTIVE' }) => {
@@ -185,10 +252,10 @@ export const StudentsPage: React.FC = () => {
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <Users className="w-6 h-6 text-emerald-600" />
-            <span>শিক্ষার্থী ব্যবস্থাপনা (Students Management)</span>
+            <span>{t('admin.students.title')}</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            হোস্টেলের সকল নিবন্ধিত শিক্ষার্থীর তথ্য, সিট বরাদ্দ এবং প্রোফাইল নিয়ন্ত্রণ
+            {t('admin.students.subtitle')}
           </p>
         </div>
         <Button
@@ -199,7 +266,7 @@ export const StudentsPage: React.FC = () => {
           className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700"
         >
           <Plus className="w-4 h-4" />
-          <span>নতুন শিক্ষার্থী যুক্ত করুন</span>
+          <span>{t('admin.dashboard.quick_admissions')}</span>
         </Button>
       </div>
 
@@ -208,7 +275,7 @@ export const StudentsPage: React.FC = () => {
         <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <Input
-            placeholder="নাম, রোল, কোড দিয়ে খুঁজুন..."
+            placeholder={t('admin.students.search_placeholder')}
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -219,7 +286,7 @@ export const StudentsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs text-slate-500 font-medium">ফিল্টার:</span>
+          <span className="text-xs text-slate-500 font-medium">{t('common.filter')}:</span>
           <Button
             size="sm"
             variant={statusFilter === 'ALL' ? 'default' : 'outline'}
@@ -229,7 +296,7 @@ export const StudentsPage: React.FC = () => {
             }}
             className="text-xs rounded-full h-8"
           >
-            সব শিক্ষার্থী
+            {t('admin.students.filter_all')}
           </Button>
           <Button
             size="sm"
@@ -240,7 +307,7 @@ export const StudentsPage: React.FC = () => {
             }}
             className="text-xs rounded-full h-8"
           >
-            সক্রিয় (Active)
+            {t('admin.students.filter_active')}
           </Button>
           <Button
             size="sm"
@@ -251,7 +318,7 @@ export const StudentsPage: React.FC = () => {
             }}
             className="text-xs rounded-full h-8"
           >
-            নিষ্ক্রিয় (Inactive)
+            {t('admin.students.filter_inactive')}
           </Button>
         </div>
       </div>
@@ -295,12 +362,12 @@ export const StudentsPage: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-slate-50/80">
-                    <TableHead className="font-semibold text-xs">আইডি কোড</TableHead>
-                    <TableHead className="font-semibold text-xs">শিক্ষার্থীর নাম ও যোগাযোগ</TableHead>
-                    <TableHead className="font-semibold text-xs">বিভাগ ও রোল</TableHead>
-                    <TableHead className="font-semibold text-xs">বরাদ্দকৃত সিট</TableHead>
-                    <TableHead className="font-semibold text-xs">স্ট্যাটাস</TableHead>
-                    <TableHead className="font-semibold text-xs text-right">পদক্ষেপ</TableHead>
+                    <TableHead className="font-semibold text-xs">{t('auth.student_id_label')}</TableHead>
+                    <TableHead className="font-semibold text-xs">{t('admin.students.th_student')}</TableHead>
+                    <TableHead className="font-semibold text-xs">{t('admin.students.th_academic')}</TableHead>
+                    <TableHead className="font-semibold text-xs">{t('admin.students.th_room')}</TableHead>
+                    <TableHead className="font-semibold text-xs">{t('admin.students.th_status')}</TableHead>
+                    <TableHead className="font-semibold text-xs text-right">{t('admin.students.th_actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -356,6 +423,15 @@ export const StudentsPage: React.FC = () => {
                           <Button
                             variant="ghost"
                             size="sm"
+                            className="h-8 w-8 p-0 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50"
+                            onClick={() => handleOpenEdit(student)}
+                            title="তথ্য পরিবর্তন করুন (Edit)"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             disabled={toggleStatusMutation.isPending}
                             className={`h-8 w-8 p-0 ${
                               student.status === 'ACTIVE'
@@ -381,7 +457,7 @@ export const StudentsPage: React.FC = () => {
 
             {/* Pagination Controls */}
             {meta.totalPages > 1 && (
-              <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
+              <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
                 <span>
                   মোট {meta.total} জন শিক্ষার্থীর মধ্যে {((meta.page - 1) * meta.limit) + 1} -{' '}
                   {Math.min(meta.page * meta.limit, meta.total)} প্রদর্শিত হচ্ছে
@@ -711,6 +787,203 @@ export const StudentsPage: React.FC = () => {
                 বন্ধ করুন
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Edit Student Modal Dialog */}
+      {editingStudent && (
+        <Dialog open={!!editingStudent} onOpenChange={() => setEditingStudent(null)}>
+          <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-emerald-600" />
+                <span>শিক্ষার্থীর তথ্য পরিবর্তন (Edit Student Information)</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                শিক্ষার্থীর ব্যক্তিগত, অ্যাকাডেমিক এবং অভিভাবকের অনুমোদিত তথ্য আপডেট করুন।
+              </DialogDescription>
+            </DialogHeader>
+
+            {editError && (
+              <Alert variant="destructive" className="bg-rose-50 border-rose-200 text-rose-800 text-xs">
+                <AlertCircle className="w-4 h-4 text-rose-600" />
+                <AlertDescription>{editError}</AlertDescription>
+              </Alert>
+            )}
+
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="edit-name" className="text-xs">
+                    পূর্ণ নাম *
+                  </Label>
+                  <Input
+                    id="edit-name"
+                    required
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="edit-phone" className="text-xs">
+                    মোবাইল নম্বর *
+                  </Label>
+                  <Input
+                    id="edit-phone"
+                    required
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="edit-dept" className="text-xs">
+                    বিভাগ (Department) *
+                  </Label>
+                  <Input
+                    id="edit-dept"
+                    required
+                    value={editForm.department}
+                    onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="edit-roll" className="text-xs">
+                    ক্লাস রোল নম্বর *
+                  </Label>
+                  <Input
+                    id="edit-roll"
+                    required
+                    value={editForm.rollNumber}
+                    onChange={(e) => setEditForm({ ...editForm, rollNumber: e.target.value })}
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="edit-session" className="text-xs">
+                    সেশন *
+                  </Label>
+                  <Input
+                    id="edit-session"
+                    required
+                    value={editForm.session}
+                    onChange={(e) => setEditForm({ ...editForm, session: e.target.value })}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="edit-batch" className="text-xs">
+                    ব্যাচ *
+                  </Label>
+                  <Input
+                    id="edit-batch"
+                    required
+                    value={editForm.batch}
+                    onChange={(e) => setEditForm({ ...editForm, batch: e.target.value })}
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="edit-blood" className="text-xs">
+                    রক্তের গ্রুপ
+                  </Label>
+                  <Input
+                    id="edit-blood"
+                    value={editForm.bloodGroup}
+                    onChange={(e) => setEditForm({ ...editForm, bloodGroup: e.target.value })}
+                    className="h-9 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="edit-addr" className="text-xs">
+                  স্থায়ী ঠিকানা *
+                </Label>
+                <Input
+                  id="edit-addr"
+                  required
+                  value={editForm.address}
+                  onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              {/* Guardian Info */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                <h4 className="text-xs font-bold text-slate-800">অভিভাবকের তথ্য (Primary Guardian)</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-g-name" className="text-[11px]">
+                      অভিভাবকের নাম
+                    </Label>
+                    <Input
+                      id="edit-g-name"
+                      value={editForm.guardianName}
+                      onChange={(e) => setEditForm({ ...editForm, guardianName: e.target.value })}
+                      className="h-8 text-xs bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-g-rel" className="text-[11px]">
+                      সম্পর্ক
+                    </Label>
+                    <Input
+                      id="edit-g-rel"
+                      value={editForm.guardianRelation}
+                      onChange={(e) => setEditForm({ ...editForm, guardianRelation: e.target.value })}
+                      className="h-8 text-xs bg-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-g-phone" className="text-[11px]">
+                      মোবাইল নম্বর
+                    </Label>
+                    <Input
+                      id="edit-g-phone"
+                      value={editForm.guardianPhone}
+                      onChange={(e) => setEditForm({ ...editForm, guardianPhone: e.target.value })}
+                      className="h-8 text-xs bg-white font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingStudent(null)}
+                >
+                  বাতিল
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={updateStudentMutation.isPending}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  {updateStudentMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                      <span>সংরক্ষণ হচ্ছে...</span>
+                    </>
+                  ) : (
+                    <span>পরিবর্তন সংরক্ষণ করুন</span>
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       )}

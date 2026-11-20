@@ -11,6 +11,7 @@ import { NoticesPage as PublicNoticesPage } from '@/features/public/notices-page
 import { ContactPage } from '@/features/public/contact-page';
 import { DesignSystemPage } from '@/features/public/design-system-page';
 import { LoginPage } from '@/features/auth/login-page';
+import { RegisterPage } from '@/features/auth/register-page';
 import { ForgotPasswordPage } from '@/features/auth/forgot-password-page';
 import { ProtectedRoute } from '@/features/auth/protected-route';
 
@@ -81,6 +82,10 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/register',
+    element: <RegisterPage />,
   },
   {
     path: '/forgot-password',

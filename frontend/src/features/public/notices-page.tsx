@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, Search, Pin, Calendar, Eye } from 'lucide-react';
-import { MOCK_NOTICES, type MockNotice } from './mock-data/public-mock-data';
+import { useQuery } from '@tanstack/react-query';
+import {
+  Search,
+  Pin,
+  Calendar,
+  Eye,
+  AlertCircle,
+  RefreshCw,
+  FileText,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +22,26 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { apiClient } from '@/lib/api-client';
+
+export interface NoticeItem {
+  id: string;
+  title: string;
+  content: string;
+  titleEn?: string | null;
+  contentEn?: string | null;
+  category: string;
+  targetAudience: 'ALL' | 'STUDENTS' | 'ADMIN';
+  isPinned: boolean;
+  status: 'PUBLISHED' | 'DRAFT';
+  publishedAt: string | null;
+  expiresAt: string | null;
+  createdByUser?: {
+    name: string;
+    email: string;
+  };
+  createdAt: string;
+}
 
 export const NoticesPage: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -20,12 +49,32 @@ export const NoticesPage: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
-  const [activeNotice, setActiveNotice] = useState<MockNotice | null>(null);
+  const [activeNotice, setActiveNotice] = useState<NoticeItem | null>(null);
 
-  const filteredNotices = MOCK_NOTICES.filter((notice) => {
+  // Query: Fetch real published notices from MySQL
+  const {
+    data: noticesResponse,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['public-notices'],
+    queryFn: async () => {
+      const res = await apiClient.get<NoticeItem[]>('/notices');
+      return res;
+    },
+    staleTime: 30 * 1000,
+  });
+
+  const notices: NoticeItem[] = noticesResponse?.data || [];
+
+  const filteredNotices = notices.filter((notice) => {
     const matchesCategory = selectedCategory === 'ALL' || notice.category === selectedCategory;
-    const title = isEn ? notice.titleEn.toLowerCase() : notice.titleBn.toLowerCase();
-    const matchesSearch = title.includes(searchTerm.toLowerCase());
+    const title = isEn && notice.titleEn ? notice.titleEn.toLowerCase() : notice.title.toLowerCase();
+    const content = isEn && notice.contentEn ? notice.contentEn.toLowerCase() : notice.content.toLowerCase();
+    const term = searchTerm.toLowerCase().trim();
+    const matchesSearch = !term || title.includes(term) || content.includes(term);
     return matchesCategory && matchesSearch;
   });
 
@@ -60,121 +109,176 @@ export const NoticesPage: React.FC = () => {
               onClick={() => setSelectedCategory('ALL')}
               className="rounded-full text-xs"
             >
-              {t('notices.all_categories')}
+              {t('notices.category_all')}
             </Button>
             <Button
               size="sm"
-              variant={selectedCategory === 'ADMISSION' ? 'default' : 'outline'}
-              onClick={() => setSelectedCategory('ADMISSION')}
+              variant={selectedCategory === 'ভর্তি' ? 'default' : 'outline'}
+              onClick={() => setSelectedCategory('ভর্তি')}
               className="rounded-full text-xs"
             >
-              ভর্তি (Admission)
+              {t('notices.category_admission')}
             </Button>
             <Button
               size="sm"
-              variant={selectedCategory === 'DINING' ? 'default' : 'outline'}
-              onClick={() => setSelectedCategory('DINING')}
+              variant={selectedCategory === 'ডাইনিং' ? 'default' : 'outline'}
+              onClick={() => setSelectedCategory('ডাইনিং')}
               className="rounded-full text-xs"
             >
-              ডাইনিং (Dining)
+              {t('notices.category_dining')}
             </Button>
             <Button
               size="sm"
-              variant={selectedCategory === 'GENERAL' ? 'default' : 'outline'}
-              onClick={() => setSelectedCategory('GENERAL')}
+              variant={selectedCategory === 'সাধারণ' ? 'default' : 'outline'}
+              onClick={() => setSelectedCategory('সাধারণ')}
               className="rounded-full text-xs"
             >
-              সাধারণ (General)
+              {t('notices.category_general')}
             </Button>
           </div>
         </div>
       </section>
 
-      {/* Notices List */}
-      <section className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl space-y-4">
-        {filteredNotices.length === 0 ? (
+      {/* Notices Feed */}
+      <section className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-40 w-full rounded-2xl" />
+            ))}
+          </div>
+        ) : isError ? (
+          <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center space-y-4">
+            <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
+            <h3 className="text-lg font-bold text-gray-800">
+              {isEn ? 'Failed to load notices' : 'নোটিশ লোড করা সম্ভব হয়নি'}
+            </h3>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto">
+              {(error as any)?.message || 'সার্ভার থেকে নোটিশ লোড করতে সমস্যা হয়েছে।'}
+            </p>
+            <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              <span>{isEn ? 'Retry' : 'পুনরায় লোড করুন'}</span>
+            </Button>
+          </div>
+        ) : filteredNotices.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center space-y-3">
-            <Bell className="w-8 h-8 text-gray-300 mx-auto" />
-            <h3 className="font-bold text-gray-700">কোনো নোটিশ খুঁজে পাওয়া যায়নি</h3>
-            <p className="text-xs text-gray-500">অনুগ্রহ করে অন্য শব্দ বা ক্যাটাগরি দিয়ে চেষ্টা করুন।</p>
+            <FileText className="w-12 h-12 text-gray-300 mx-auto" />
+            <h4 className="text-base font-bold text-gray-800">
+              {isEn ? 'No notices found' : 'কোনো নোটিশ পাওয়া যায়নি'}
+            </h4>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto">
+              {isEn
+                ? 'There are currently no active public announcements.'
+                : 'বর্তমানে কোনো নোটিশ নেই। নতুন নোটিশ প্রকাশিত হলে এখানে দেখতে পাবেন।'}
+            </p>
           </div>
         ) : (
-          filteredNotices.map((notice) => (
-            <div
-              key={notice.id}
-              className={`bg-white rounded-2xl border p-6 shadow-xs hover:border-emerald-300 transition-all flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${
-                notice.isPinned ? 'border-emerald-300 bg-emerald-50/20' : 'border-gray-200'
-              }`}
-            >
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  {notice.isPinned && (
-                    <Badge variant="default" className="gap-1 bg-emerald-600 text-white text-[10px]">
-                      <Pin className="w-3 h-3" />
-                      <span>{t('notices.pinned')}</span>
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="text-[10px]">
-                    {isEn ? notice.categoryLabelEn : notice.categoryLabelBn}
-                  </Badge>
-                  <span className="flex items-center gap-1 text-xs text-gray-400">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>{notice.publishedDate}</span>
-                  </span>
-                </div>
+          <div className="space-y-4">
+            {filteredNotices.map((notice) => {
+              const displayTitle = isEn && notice.titleEn ? notice.titleEn : notice.title;
+              const displayContent = isEn && notice.contentEn ? notice.contentEn : notice.content;
 
-                <h3 className="text-lg font-bold text-gray-900">
-                  {isEn ? notice.titleEn : notice.titleBn}
-                </h3>
-                <p className="text-xs text-gray-600 line-clamp-2 max-w-2xl leading-relaxed">
-                  {isEn ? notice.contentEn : notice.contentBn}
-                </p>
-              </div>
-
-              <div className="shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveNotice(notice)}
-                  className="gap-1 text-xs font-semibold"
+              return (
+                <div
+                  key={notice.id}
+                  className={`bg-white rounded-2xl border p-6 sm:p-8 transition-all space-y-4 ${
+                    notice.isPinned
+                      ? 'border-emerald-300 ring-1 ring-emerald-100 shadow-sm'
+                      : 'border-gray-200 hover:border-gray-300 shadow-xs'
+                  }`}
                 >
-                  <Eye className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{t('notices.read_more')}</span>
-                </Button>
-              </div>
-            </div>
-          ))
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      {notice.isPinned && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                          <Pin className="w-3 h-3 text-emerald-700" />
+                          <span>{isEn ? 'Important' : 'জরুরি / পিনযুক্ত'}</span>
+                        </span>
+                      )}
+                      <Badge variant="outline" className="text-xs">
+                        {notice.category}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>
+                        {notice.publishedAt
+                          ? new Date(notice.publishedAt).toLocaleDateString(isEn ? 'en-US' : 'bn-BD')
+                          : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 leading-snug">
+                      {displayTitle}
+                    </h3>
+                    <p className="text-sm text-gray-600 leading-relaxed mt-2 line-clamp-3">
+                      {displayContent}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
+                    <span className="text-gray-400">
+                      {isEn ? 'Issued by: ' : 'প্রচারক: '}
+                      <strong className="text-gray-700">
+                        {notice.createdByUser?.name || 'Hostel Administration'}
+                      </strong>
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setActiveNotice(notice)}
+                      className="text-xs text-emerald-700 hover:text-emerald-800 gap-1"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>{t('notices.read_full')}</span>
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </section>
 
       {/* Notice Detail Dialog */}
       {activeNotice && (
         <Dialog open={!!activeNotice} onOpenChange={(open) => !open && setActiveNotice(null)}>
-          <DialogContent className="max-w-xl">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline">
-                  {isEn ? activeNotice.categoryLabelEn : activeNotice.categoryLabelBn}
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className="text-xs">
+                  {activeNotice.category}
                 </Badge>
-                <span className="text-xs text-gray-400">{activeNotice.publishedDate}</span>
+                {activeNotice.isPinned && (
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                    {isEn ? 'Important' : 'পিনযুক্ত'}
+                  </span>
+                )}
+                <span className="text-xs text-gray-400">
+                  {activeNotice.publishedAt
+                    ? new Date(activeNotice.publishedAt).toLocaleDateString(isEn ? 'en-US' : 'bn-BD')
+                    : ''}
+                </span>
               </div>
               <DialogTitle className="text-xl leading-snug">
-                {isEn ? activeNotice.titleEn : activeNotice.titleBn}
+                {isEn && activeNotice.titleEn ? activeNotice.titleEn : activeNotice.title}
               </DialogTitle>
-              <DialogDescription className="text-xs text-gray-500">
-                {isEn ? 'Hostel Official Announcement' : 'হোস্টেল কর্তৃপক্ষের অফিশিয়াল বিজ্ঞপ্তি'}
+              <DialogDescription>
+                {isEn ? 'Issued by: ' : 'প্রচারক: '}
+                {activeNotice.createdByUser?.name || 'Hostel Administration'}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="py-4 border-y border-gray-100 my-2">
-              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
-                {isEn ? activeNotice.contentEn : activeNotice.contentBn}
-              </p>
+            <div className="p-4 bg-slate-50 rounded-xl border border-gray-200 text-sm leading-relaxed text-gray-700 whitespace-pre-line">
+              {isEn && activeNotice.contentEn ? activeNotice.contentEn : activeNotice.content}
             </div>
 
             <DialogFooter>
-              <Button onClick={() => setActiveNotice(null)} variant="default">
-                ঠিক আছে (Close)
+              <Button variant="outline" size="sm" onClick={() => setActiveNotice(null)}>
+                {isEn ? 'Close' : 'বন্ধ করুন'}
               </Button>
             </DialogFooter>
           </DialogContent>

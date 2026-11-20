@@ -53,6 +53,11 @@ export class AllocationService {
         throw AppError.conflict('এই সিটটি বর্তমানে ফাঁকা নেই (Bed is not available)');
       }
 
+      // Check room availability status
+      if (bed.room.status && bed.room.status !== RoomStatus.AVAILABLE) {
+        throw AppError.conflict('এই রুমটি বর্তমানে বরাদ্দযোগ্য নয় (Room is not available for allocation)');
+      }
+
       // Check overlapping active allocation on this bed
       const existingBedAllocation = await tx.roomAllocation.findFirst({
         where: {

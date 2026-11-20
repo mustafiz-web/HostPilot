@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Building2, Menu, X, LogIn } from 'lucide-react';
+import { Building2, Menu, X, LogIn, UserPlus } from 'lucide-react';
 import { LanguageSwitcher } from './language-switcher';
 import { Button } from '@/components/ui/button';
 
@@ -58,9 +58,20 @@ export const Header: React.FC = () => {
         </nav>
 
         {/* Action Controls */}
-        <div className="hidden lg:flex items-center gap-3">
+        <div className="hidden lg:flex items-center gap-2 xl:gap-3">
           <LanguageSwitcher />
-          <Button asChild size="sm" className="gap-1.5 font-medium shadow-xs">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="gap-1.5 font-medium border-emerald-600 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+          >
+            <Link to="/register">
+              <UserPlus className="w-4 h-4 text-emerald-600" />
+              <span>{t('nav.register')}</span>
+            </Link>
+          </Button>
+          <Button asChild size="sm" className="gap-1.5 font-medium shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white">
             <Link to="/login">
               <LogIn className="w-4 h-4" />
               <span>{t('nav.login')}</span>
@@ -100,7 +111,17 @@ export const Header: React.FC = () => {
             </Link>
           ))}
           <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
-            <Button asChild className="w-full gap-2">
+            <Button
+              asChild
+              variant="outline"
+              className="w-full gap-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+            >
+              <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
+                <UserPlus className="w-4 h-4 text-emerald-600" />
+                <span>{t('nav.register')} (Create Account)</span>
+              </Link>
+            </Button>
+            <Button asChild className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
               <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
                 <LogIn className="w-4 h-4" />
                 <span>{t('nav.login')}</span>

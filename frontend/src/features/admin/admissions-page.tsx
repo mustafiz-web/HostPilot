@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   UserPlus,
@@ -57,6 +58,7 @@ interface AdmissionApplication {
 }
 
 export const AdmissionsPage: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
@@ -120,10 +122,10 @@ export const AdmissionsPage: React.FC = () => {
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <UserPlus className="w-6 h-6 text-emerald-600" />
-            <span>ভর্তি আবেদন পর্যালোচনা (Admissions)</span>
+            <span>{t('admin.admissions.title')}</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            পাবলিক ওয়েবসাইট থেকে জমাকৃত সিট আবেদনসমূহ যাচাই, অনুমোদন এবং বাতিলকরণ
+            {t('admin.admissions.subtitle')}
           </p>
         </div>
       </div>
@@ -133,7 +135,7 @@ export const AdmissionsPage: React.FC = () => {
         <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <Input
-            placeholder="নাম বা অ্যাপ্লিকেশন নম্বর দিয়ে খুঁজুন..."
+            placeholder={t('admin.students.search_placeholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 h-9 text-xs sm:text-sm"
@@ -141,14 +143,14 @@ export const AdmissionsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs text-slate-500 font-medium">স্ট্যাটাস:</span>
+          <span className="text-xs text-slate-500 font-medium">{t('common.status')}:</span>
           <Button
             size="sm"
             variant={statusFilter === 'ALL' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('ALL')}
             className="text-xs rounded-full h-8"
           >
-            সব ({admissions.length})
+            {t('common.all')} ({admissions.length})
           </Button>
           <Button
             size="sm"
@@ -156,7 +158,7 @@ export const AdmissionsPage: React.FC = () => {
             onClick={() => setStatusFilter('PENDING')}
             className="text-xs rounded-full h-8"
           >
-            অপেক্ষমান
+            {t('status.pending')}
           </Button>
           <Button
             size="sm"
@@ -164,7 +166,7 @@ export const AdmissionsPage: React.FC = () => {
             onClick={() => setStatusFilter('APPROVED')}
             className="text-xs rounded-full h-8"
           >
-            অনুমোদিত
+            {t('status.approved')}
           </Button>
           <Button
             size="sm"
@@ -172,7 +174,7 @@ export const AdmissionsPage: React.FC = () => {
             onClick={() => setStatusFilter('REJECTED')}
             className="text-xs rounded-full h-8"
           >
-            বাতিল
+            {t('status.rejected')}
           </Button>
         </div>
       </div>
@@ -213,12 +215,12 @@ export const AdmissionsPage: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50/80">
-                  <TableHead className="font-semibold text-xs">আবেদন নম্বর</TableHead>
-                  <TableHead className="font-semibold text-xs">আবেদনকারী</TableHead>
-                  <TableHead className="font-semibold text-xs">পছন্দের রুম</TableHead>
-                  <TableHead className="font-semibold text-xs">আবেদনের তারিখ</TableHead>
-                  <TableHead className="font-semibold text-xs">স্ট্যাটাস</TableHead>
-                  <TableHead className="font-semibold text-xs text-right">পদক্ষেপ</TableHead>
+                  <TableHead className="font-semibold text-xs">{t('admin.admissions.th_app_no')}</TableHead>
+                  <TableHead className="font-semibold text-xs">{t('admin.admissions.th_applicant')}</TableHead>
+                  <TableHead className="font-semibold text-xs">{t('admin.admissions.th_room_pref')}</TableHead>
+                  <TableHead className="font-semibold text-xs">{t('admin.admissions.th_date')}</TableHead>
+                  <TableHead className="font-semibold text-xs">{t('admin.admissions.th_status')}</TableHead>
+                  <TableHead className="font-semibold text-xs text-right">{t('admin.admissions.th_actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -369,7 +371,7 @@ export const AdmissionsPage: React.FC = () => {
               )}
             </div>
 
-            <DialogFooter className="gap-2">
+            <DialogFooter className="gap-2 flex-col sm:flex-row">
               <Button size="sm" variant="outline" onClick={() => setSelectedApp(null)}>
                 বন্ধ করুন
               </Button>

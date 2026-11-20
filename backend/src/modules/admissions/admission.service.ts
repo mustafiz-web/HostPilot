@@ -159,6 +159,33 @@ export class AdmissionService {
       },
     });
 
+    // If application was linked to a student account, sync their active status
+    if (input.status === 'APPROVED' && existing.studentId) {
+      await prisma.student.update({
+        where: { id: existing.studentId },
+        data: { status: 'ACTIVE' },
+      });
+      const stu = await prisma.student.findUnique({ where: { id: existing.studentId } });
+      if (stu?.userId) {
+        await prisma.user.update({
+          where: { id: stu.userId },
+          data: { status: 'ACTIVE' },
+        });
+      }
+    } else if (input.status === 'REJECTED' && existing.studentId) {
+      await prisma.student.update({
+        where: { id: existing.studentId },
+        data: { status: 'INACTIVE' },
+      });
+      const stu = await prisma.student.findUnique({ where: { id: existing.studentId } });
+      if (stu?.userId) {
+        await prisma.user.update({
+          where: { id: stu.userId },
+          data: { status: 'INACTIVE' },
+        });
+      }
+    }
+
     return updated;
   }
 }

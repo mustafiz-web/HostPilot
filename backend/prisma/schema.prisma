@@ -339,10 +339,14 @@ model Notice {
   id              String       @id @default(uuid())
   title           String
   content         String       @db.Text
+  titleEn         String?
+  contentEn       String?      @db.Text
   category        String       @default("GENERAL")
+  targetAudience  String       @default("ALL")
   isPinned        Boolean      @default(false)
   status          NoticeStatus @default(DRAFT)
   publishedAt     DateTime?
+  expiresAt       DateTime?
   createdByUserId String
   createdByUser   User         @relation("NoticeAuthor", fields: [createdByUserId], references: [id], onDelete: Restrict)
   createdAt       DateTime     @default(now())
@@ -351,6 +355,7 @@ model Notice {
   @@index([status])
   @@index([publishedAt])
   @@index([isPinned])
+  @@index([targetAudience])
 }
 
 model AuditLog {

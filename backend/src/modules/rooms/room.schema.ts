@@ -35,3 +35,14 @@ export const addBedSchema = {
     roomId: z.string().min(1),
   }),
 };
+
+export const updateBedSchema = {
+  body: z.object({
+    bedCode: z.string().min(1).trim().optional(),
+    status: z.nativeEnum(BedStatus).optional(),
+  }),
+  params: z.object({
+    roomId: z.string().min(1),
+    bedId: z.string().min(1),
+  }),
+};

@@ -5,7 +5,20 @@ import { AppError } from '../../utils/app-error';
 export class PaymentController {
   public async recordPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const payment = await paymentService.recordPayment(req.body, req.user!.id);
+      let studentId = req.body.studentId;
+      if (req.user?.role === 'STUDENT') {
+        if (!req.user.studentId) {
+          throw AppError.forbidden('Only registered students can make fee payments');
+        }
+        studentId = req.user.studentId;
+      } else if (!studentId) {
+        throw AppError.badRequest('শিক্ষার্থী আইডি আবশ্যক (Student ID required)');
+      }
+
+      const payment = await paymentService.recordPayment(
+        { ...req.body, studentId },
+        req.user!.id
+      );
       res.status(201).json({
         success: true,
         data: payment,

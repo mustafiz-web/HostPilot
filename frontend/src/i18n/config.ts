@@ -27,7 +27,27 @@ i18n
     detection: {
       order: ['localStorage', 'navigator'],
       caches: ['localStorage'],
+      lookupLocalStorage: 'i18nextLng',
     },
   });
+
+const syncHtmlLang = (lng: string | undefined) => {
+  if (typeof document !== 'undefined') {
+    const active = lng?.startsWith('en') ? 'en' : 'bn';
+    document.documentElement.lang = active;
+    if (active === 'bn') {
+      document.documentElement.classList.add('font-bengali');
+      document.documentElement.classList.remove('font-sans');
+    } else {
+      document.documentElement.classList.add('font-sans');
+      document.documentElement.classList.remove('font-bengali');
+    }
+  }
+};
+
+syncHtmlLang(i18n.language);
+i18n.on('languageChanged', (lng) => {
+  syncHtmlLang(lng);
+});
 
 export default i18n;

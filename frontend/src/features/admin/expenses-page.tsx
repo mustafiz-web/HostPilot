@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Receipt, Plus } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Receipt, Plus, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Table,
   TableHeader,
@@ -19,56 +22,81 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { INITIAL_MOCK_EXPENSES, type MockExpense } from './mock-data/admin-mock-data';
+import { apiClient } from '@/lib/api-client';
+
+export interface ExpenseItem {
+  id: string;
+  title: string;
+  category: string;
+  categoryLabel: string;
+  amount: number;
+  description?: string;
+  expenseDate: string;
+  recordedBy: string;
+  createdAt: string;
+}
 
 export const ExpensesPage: React.FC = () => {
-  const [expenses, setExpenses] = useState<MockExpense[]>(INITIAL_MOCK_EXPENSES);
+  const queryClient = useQueryClient();
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const [newExp, setNewExp] = useState({
     title: '',
-    category: 'MAINTENANCE' as any,
-    categoryLabel: 'রক্ষণাবেক্ষণ',
+    category: 'UTILITIES',
     amount: '',
-    expenseDate: '১৮ নভেম্বর, ২০২৬',
   });
 
-  const filtered = expenses.filter((e) => {
-    if (categoryFilter === 'ALL') return true;
-    return e.category === categoryFilter;
+  // Query: Fetch expenses from real MySQL API
+  const {
+    data: expensesResponse,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['admin-expenses', { category: categoryFilter }],
+    queryFn: async () => {
+      const res = await apiClient.get<ExpenseItem[]>('/expenses', {
+        category: categoryFilter === 'ALL' ? undefined : categoryFilter,
+      });
+      return res;
+    },
+    staleTime: 30 * 1000,
   });
 
-  const totalExpense = filtered.reduce((sum, item) => sum + item.amount, 0);
+  const expenses: ExpenseItem[] = expensesResponse?.data || [];
+  const totalExpense = expenses.reduce((sum, item) => sum + item.amount, 0);
+
+  // Mutation: Record Expense
+  const addExpenseMutation = useMutation({
+    mutationFn: async (payload: { title: string; category: string; amount: number }) => {
+      const res = await apiClient.post<ExpenseItem>('/expenses', payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-expenses'] });
+      setAddModalOpen(false);
+      setAddError(null);
+      setNewExp({
+        title: '',
+        category: 'UTILITIES',
+        amount: '',
+      });
+    },
+    onError: (err: any) => {
+      setAddError(err.message || 'খরচ এন্ট্রি করতে সমস্যা হয়েছে');
+    },
+  });
 
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    const catLabels: Record<string, string> = {
-      UTILITIES: 'বিদ্যুৎ ও গ্যাস',
-      MAINTENANCE: 'রক্ষণাবেক্ষণ',
-      FOOD: 'খাদ্য ও ডাইনিং',
-      STAFF_SALARY: 'স্টাফ বেতন',
-      OTHER: 'অন্যান্য',
-    };
-
-    const entry: MockExpense = {
-      id: `exp-${Date.now()}`,
+    setAddError(null);
+    addExpenseMutation.mutate({
       title: newExp.title,
       category: newExp.category,
-      categoryLabel: catLabels[newExp.category] || 'সাধারণ',
       amount: Number(newExp.amount),
-      expenseDate: newExp.expenseDate,
-      recordedBy: 'Admin (Current User)',
-    };
-
-    setExpenses([entry, ...expenses]);
-    setAddModalOpen(false);
-    setNewExp({
-      title: '',
-      category: 'MAINTENANCE',
-      categoryLabel: 'রক্ষণাবেক্ষণ',
-      amount: '',
-      expenseDate: '১৮ নভেম্বর, ২০২৬',
     });
   };
 
@@ -85,7 +113,13 @@ export const ExpensesPage: React.FC = () => {
             বিদ্যুৎ, ডাইনিং রেশন, ওয়াইফাই এবং হোস্টেল রক্ষণাবেক্ষণের নিয়মিত খরচের হিসাব
           </p>
         </div>
-        <Button onClick={() => setAddModalOpen(true)} className="gap-2 shadow-xs self-start sm:self-auto">
+        <Button
+          onClick={() => {
+            setAddError(null);
+            setAddModalOpen(true);
+          }}
+          className="gap-2 shadow-xs self-start sm:self-auto bg-emerald-600 hover:bg-emerald-700"
+        >
           <Plus className="w-4 h-4" />
           <span>নতুন খরচ এন্ট্রি করুন</span>
         </Button>
@@ -94,11 +128,11 @@ export const ExpensesPage: React.FC = () => {
       {/* Expense Summary Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-          <span className="text-xs text-slate-500 font-semibold uppercase">মোট খরচ (চলতি মাস)</span>
+          <span className="text-xs text-slate-500 font-semibold uppercase">মোট খরচ</span>
           <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">
             ৳ {totalExpense.toLocaleString()}
           </div>
-          <span className="text-xs text-slate-400">ফিল্টারকৃত মোট ব্যয়</span>
+          <span className="text-xs text-slate-400">ফিল্টারকৃত মোট ব্যয় ({expenses.length} টি ভাউচার)</span>
         </div>
       </div>
 
@@ -140,36 +174,64 @@ export const ExpensesPage: React.FC = () => {
       </div>
 
       {/* Expenses Table */}
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>খরচের বিবরণ</TableHead>
-            <TableHead>ক্যাটাগরি</TableHead>
-            <TableHead>তারিখ</TableHead>
-            <TableHead>অ্যান্ট্রিকৃত কর্মকর্তা</TableHead>
-            <TableHead className="text-right">টাকার পরিমাণ (BDT)</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filtered.map((item) => (
-            <TableRow key={item.id}>
-              <TableCell className="font-bold text-slate-900 text-sm">
-                {item.title}
-              </TableCell>
-              <TableCell>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                  {item.categoryLabel}
-                </span>
-              </TableCell>
-              <TableCell className="text-xs text-slate-500">{item.expenseDate}</TableCell>
-              <TableCell className="text-xs text-slate-600">{item.recordedBy}</TableCell>
-              <TableCell className="text-right font-extrabold text-slate-900 text-sm">
-                ৳ {item.amount.toLocaleString()}
-              </TableCell>
-            </TableRow>
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-xl" />
           ))}
-        </TableBody>
-      </Table>
+        </div>
+      ) : isError ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4">
+          <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
+          <h3 className="text-lg font-bold text-slate-800">ব্যয়ের হিসাব লোড করা যায়নি</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            {(error as any)?.message || 'সার্ভার থেকে খরচের তথ্য পাওয়া যায়নি।'}
+          </p>
+          <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
+            <RefreshCw className="w-4 h-4" />
+            <span>পুনরায় লোড করুন</span>
+          </Button>
+        </div>
+      ) : expenses.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
+          <Receipt className="w-12 h-12 text-slate-300 mx-auto" />
+          <h4 className="text-base font-bold text-slate-800">কোনো খরচ রেকর্ড পাওয়া যায়নি</h4>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            নতুন খরচের হিসাব অন্তর্ভুক্ত করতে ওপরের "নতুন খরচ এন্ট্রি করুন" বাটনে চাপুন।
+          </p>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>খরচের বিবরণ</TableHead>
+              <TableHead>ক্যাটাগরি</TableHead>
+              <TableHead>তারিখ</TableHead>
+              <TableHead>অ্যান্ট্রিকৃত কর্মকর্তা</TableHead>
+              <TableHead className="text-right">টাকার পরিমাণ (BDT)</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {expenses.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell className="font-bold text-slate-900 text-sm">
+                  {item.title}
+                </TableCell>
+                <TableCell>
+                  <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                    {item.categoryLabel}
+                  </span>
+                </TableCell>
+                <TableCell className="text-xs text-slate-500">{item.expenseDate}</TableCell>
+                <TableCell className="text-xs text-slate-600">{item.recordedBy}</TableCell>
+                <TableCell className="text-right font-extrabold text-slate-900 text-sm">
+                  ৳ {item.amount.toLocaleString()}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
 
       {/* Add Expense Modal */}
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
@@ -180,6 +242,13 @@ export const ExpensesPage: React.FC = () => {
               হোস্টেল পরিচালনা ও মেরামতের ব্যয় বিবরণী সংরক্ষণ করুন।
             </DialogDescription>
           </DialogHeader>
+
+          {addError && (
+            <Alert variant="destructive" className="bg-rose-50 border-rose-200 text-rose-800 text-xs">
+              <AlertCircle className="w-4 h-4 text-rose-600" />
+              <AlertDescription>{addError}</AlertDescription>
+            </Alert>
+          )}
 
           <form onSubmit={handleAddExpense} className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -193,13 +262,13 @@ export const ExpensesPage: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>খরচের ক্যাটাগরি *</Label>
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-ring"
                   value={newExp.category}
-                  onChange={(e) => setNewExp({ ...newExp, category: e.target.value as any })}
+                  onChange={(e) => setNewExp({ ...newExp, category: e.target.value })}
                 >
                   <option value="UTILITIES">ইউটিলিটি ও বিল</option>
                   <option value="MAINTENANCE">মেরামত ও রক্ষণাবেক্ষণ</option>
@@ -214,6 +283,7 @@ export const ExpensesPage: React.FC = () => {
                 <Input
                   id="exp-amt"
                   type="number"
+                  min={1}
                   required
                   placeholder="যেমন: ৩০০০"
                   value={newExp.amount}
@@ -222,20 +292,24 @@ export const ExpensesPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="exp-date">খরচের তারিখ</Label>
-              <Input
-                id="exp-date"
-                value={newExp.expenseDate}
-                onChange={(e) => setNewExp({ ...newExp, expenseDate: e.target.value })}
-              />
-            </div>
-
-            <DialogFooter className="gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setAddModalOpen(false)}>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setAddModalOpen(false)}>
                 বাতিল
               </Button>
-              <Button type="submit">খরচ সংরক্ষণ করুন</Button>
+              <Button
+                type="submit"
+                disabled={addExpenseMutation.isPending}
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
+              >
+                {addExpenseMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    <span>সংরক্ষণ হচ্ছে...</span>
+                  </>
+                ) : (
+                  <span>খরচ সংরক্ষণ করুন</span>
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

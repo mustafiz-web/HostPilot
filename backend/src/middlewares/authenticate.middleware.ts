@@ -47,3 +47,31 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
     next(error);
   }
 }
+
+export async function optionalAuthenticate(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  try {
+    let token = req.cookies?.token;
+    if (!token && req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7).trim();
+      }
+    }
+
+    if (!token) {
+      return next();
+    }
+
+    try {
+      const payload = authService.verifyToken(token);
+      const liveUser = await authService.getUserById(payload.userId);
+      req.user = liveUser;
+    } catch {
+      // If token invalid, proceed unauthenticated
+    }
+
+    next();
+  } catch {
+    next();
+  }
+}

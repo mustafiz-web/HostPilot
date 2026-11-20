@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Badge } from './badge';
 import { cn } from '@/lib/utils';
 
@@ -12,7 +13,10 @@ export type HostPilotStatus =
   | 'DUE'
   | 'PARTIAL'
   | 'AVAILABLE'
+  | 'PARTIALLY_OCCUPIED'
   | 'OCCUPIED'
+  | 'FULL'
+  | 'STOCK_OUT'
   | 'MAINTENANCE'
   | 'RESOLVED'
   | 'IN_PROGRESS';
@@ -28,6 +32,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   className,
   showDot = true,
 }) => {
+  const { t } = useTranslation();
   const normalized = status.toUpperCase();
 
   const getStatusConfig = () => {
@@ -38,30 +43,49 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
       case 'RESOLVED':
       case 'AVAILABLE':
         return {
-          label: normalized === 'PAID' ? 'পরিশোধিত' : normalized === 'ACTIVE' ? 'সক্রিয়' : normalized === 'APPROVED' ? 'অনুমোদিত' : normalized === 'AVAILABLE' ? 'খালি' : 'নিষ্পন্ন',
+          label: t(`status.${normalized.toLowerCase()}`, normalized),
           badgeVariant: 'success' as const,
           dotColor: 'bg-emerald-500',
+        };
+      case 'PARTIALLY_OCCUPIED':
+      case 'PARTIAL_OCCUPIED':
+        return {
+          label: t('status.partially_occupied', 'Partially Occupied'),
+          badgeVariant: 'warning' as const,
+          dotColor: 'bg-amber-500',
+        };
+      case 'FULL':
+      case 'STOCK_OUT':
+        return {
+          label: t('status.full', 'Full / Stock Out'),
+          badgeVariant: 'destructive' as const,
+          dotColor: 'bg-rose-500',
+        };
+      case 'MAINTENANCE':
+        return {
+          label: t('status.maintenance', 'Maintenance'),
+          badgeVariant: 'destructive' as const,
+          dotColor: 'bg-slate-500',
         };
       case 'PENDING':
       case 'IN_PROGRESS':
       case 'PARTIAL':
         return {
-          label: normalized === 'PENDING' ? 'অপেক্ষমান' : normalized === 'IN_PROGRESS' ? 'প্রক্রিয়াধীন' : 'আংশিক',
+          label: t(`status.${normalized.toLowerCase()}`, normalized),
           badgeVariant: 'warning' as const,
           dotColor: 'bg-amber-500',
         };
       case 'REJECTED':
       case 'DUE':
       case 'INACTIVE':
-      case 'MAINTENANCE':
         return {
-          label: normalized === 'DUE' ? 'বকেয়া' : normalized === 'REJECTED' ? 'বাতিল' : normalized === 'INACTIVE' ? 'নিষ্ক্রিয়' : 'মেরামত চলছে',
+          label: t(`status.${normalized.toLowerCase()}`, normalized),
           badgeVariant: 'destructive' as const,
           dotColor: 'bg-rose-500',
         };
       case 'OCCUPIED':
         return {
-          label: 'বরাদ্দকৃত',
+          label: t('status.occupied', 'Occupied'),
           badgeVariant: 'secondary' as const,
           dotColor: 'bg-slate-500',
         };

@@ -1,7 +1,36 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ShieldCheck, Heart, BookOpen, Clock, Phone, Mail, Award, CheckCircle2 } from 'lucide-react';
-import { MOCK_TEAM } from './mock-data/public-mock-data';
+
+const HOSTEL_TEAM = [
+  {
+    nameEn: 'Dr. Shahinur Rahman',
+    nameBn: 'ড. শাহিনুর রহমান',
+    roleEn: 'Chief Warden',
+    roleBn: 'প্রধান হোস্টেল সুপার / ওয়ার্ডেন',
+    phone: '+880 1711-XXXXXX',
+    email: 'warden@hostpilot.com',
+    imageUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+  },
+  {
+    nameEn: 'Md. Kamrul Hasan',
+    nameBn: 'মো. কামরুল হাসান',
+    roleEn: 'Assistant Warden & Admin',
+    roleBn: 'সহকারী ওয়ার্ডেন ও প্রশাসন',
+    phone: '+880 1812-XXXXXX',
+    email: 'admin@hostpilot.com',
+    imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400',
+  },
+  {
+    nameEn: 'Abdul Hannan',
+    nameBn: 'আব্দুল হান্নান',
+    roleEn: 'Hostel Supervisor & Caretaker',
+    roleBn: 'কেয়ারটেকার ও হোস্টেল তত্ত্বাবধায়ক',
+    phone: '+880 1913-XXXXXX',
+    email: 'supervisor@hostpilot.com',
+    imageUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=400',
+  },
+];
 
 export const AboutPage: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -91,7 +120,7 @@ export const AboutPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {MOCK_TEAM.map((member, idx) => (
+          {HOSTEL_TEAM.map((member, idx) => (
             <div
               key={idx}
               className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-xs hover:border-emerald-300 transition-all flex flex-col justify-between"

@@ -53,6 +53,32 @@ export class NoticeController {
       next(error);
     }
   }
+
+  public async deleteNotice(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await noticeService.deleteNotice(req.params.id);
+      res.status(200).json({
+        success: true,
+        data: result,
+        message: result.message,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async togglePublish(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const notice = await noticeService.togglePublish(req.params.id);
+      res.status(200).json({
+        success: true,
+        data: notice,
+        message: 'নোটিশের স্ট্যাটাস সফলভাবে পরিবর্তন করা হয়েছে',
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const noticeController = new NoticeController();

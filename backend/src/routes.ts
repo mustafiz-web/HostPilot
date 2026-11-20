@@ -8,6 +8,8 @@ import { allocationRoutes } from './modules/allocations/allocation.routes';
 import { paymentRoutes } from './modules/payments/payment.routes';
 import { complaintRoutes } from './modules/complaints/complaint.routes';
 import { noticeRoutes } from './modules/notices/notice.routes';
+import { expenseRoutes } from './modules/expenses/expense.routes';
+import { dashboardRoutes } from './modules/dashboard/dashboard.routes';
 
 const router = Router();
 
@@ -32,10 +34,16 @@ router.use('/allocations', allocationRoutes);
 // Payments & Billing API
 router.use('/payments', paymentRoutes);
 
+// Expenses API
+router.use('/expenses', expenseRoutes);
+
 // Complaints API
 router.use('/complaints', complaintRoutes);
 
 // Notices API
 router.use('/notices', noticeRoutes);
+
+// Dashboard Analytics API
+router.use('/dashboard', dashboardRoutes);
 
 export const apiV1Routes = router;

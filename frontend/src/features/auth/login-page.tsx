@@ -1,11 +1,25 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Building2, Lock, Mail, Shield, User, ArrowLeft, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import {
+  Building2,
+  Lock,
+  Mail,
+  Shield,
+  User,
+  ArrowLeft,
+  Loader2,
+  Sparkles,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  UserPlus,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { LanguageSwitcher } from '@/components/shared/language-switcher';
 import { useAuth } from './auth-context';
 
 export const LoginPage: React.FC = () => {
@@ -17,6 +31,7 @@ export const LoginPage: React.FC = () => {
   const [role, setRole] = useState<'ADMIN' | 'STUDENT'>('ADMIN');
   const [email, setEmail] = useState('admin@hostpilot.dev');
   const [password, setPassword] = useState('Admin#Dev2026!');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -53,14 +68,17 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50">
+    <div className="min-h-screen flex flex-col justify-center py-8 px-3 sm:px-6 lg:px-8 bg-slate-50 relative">
+      <div className="absolute top-3 right-3 sm:top-6 sm:right-6">
+        <LanguageSwitcher />
+      </div>
       <div className="sm:mx-auto sm:w-full sm:max-w-md space-y-4">
         <Link
           to="/"
           className="inline-flex items-center gap-2 text-xs sm:text-sm text-emerald-700 hover:text-emerald-800 font-medium mx-auto justify-center w-full"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>মূল ওয়েবসাইটে ফিরে যান</span>
+          <span>{t('auth.back_to_site')}</span>
         </Link>
         <div className="flex justify-center">
           <div className="h-12 w-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md">
@@ -149,13 +167,21 @@ export const LoginPage: React.FC = () => {
                 </div>
                 <Input
                   id="login-password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="pl-9"
+                  className="pl-9 pr-10"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
@@ -167,13 +193,28 @@ export const LoginPage: React.FC = () => {
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  <span>যাচাই করা হচ্ছে...</span>
+                  <span>{t('auth.verifying')}</span>
                 </>
               ) : (
-                <span>{role === 'ADMIN' ? 'অ্যাডমিন ড্যাশবোর্ডে প্রবেশ করুন' : 'স্টুডেন্ট পোর্টালে প্রবেশ করুন'}</span>
+                <span>{role === 'ADMIN' ? t('auth.admin_login_btn') : t('auth.student_login_btn')}</span>
               )}
             </Button>
           </form>
+
+          {/* Registration CTA Box */}
+          <div className="pt-5 border-t border-gray-100 text-center space-y-2.5">
+            <p className="text-xs text-gray-500">{t('auth.new_student')}</p>
+            <Button
+              asChild
+              variant="outline"
+              className="w-full gap-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 font-semibold text-xs py-4"
+            >
+              <Link to="/register">
+                <UserPlus className="w-4 h-4 text-emerald-600" />
+                <span>{t('auth.register_here')}</span>
+              </Link>
+            </Button>
+          </div>
 
           {/* Quick Demo Credentials Fill Helpers */}
           <div className="pt-4 border-t border-gray-100 space-y-2">
@@ -189,7 +230,7 @@ export const LoginPage: React.FC = () => {
                 className="flex-1 text-[11px] h-8"
                 onClick={() => handleFillDemo('STUDENT')}
               >
-                ছাত্র অ্যাকাউন্ট
+                {t('auth.student_account')}
               </Button>
               <Button
                 type="button"
@@ -198,7 +239,7 @@ export const LoginPage: React.FC = () => {
                 className="flex-1 text-[11px] h-8"
                 onClick={() => handleFillDemo('ADMIN')}
               >
-                অ্যাডমিন অ্যাকাউন্ট
+                {t('auth.admin_account')}
               </Button>
             </div>
           </div>
