@@ -38,7 +38,8 @@ const admissionSchema = z.object({
 type AdmissionFormValues = z.infer<typeof admissionSchema>;
 
 export const AdmissionPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language?.startsWith('en');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedAppCode, setSubmittedAppCode] = useState<string | null>(null);
@@ -66,7 +67,7 @@ export const AdmissionPage: React.FC = () => {
       setSubmittedAppCode(res.data.applicationNumber);
     } catch (err: any) {
       setSubmitError(
-        err.message || 'ভর্তি আবেদন জমা নেওয়া সম্ভব হয়নি। অনুগ্রহ করে তথ্য যাচাই করে পুনরায় চেষ্টা করুন।'
+        err.message || (isEn ? 'Failed to submit admission application. Please check your data and retry.' : 'ভর্তি আবেদন জমা নেওয়া সম্ভব হয়নি। অনুগ্রহ করে তথ্য যাচাই করে পুনরায় চেষ্টা করুন।')
       );
     } finally {
       setIsSubmitting(false);
@@ -95,7 +96,7 @@ export const AdmissionPage: React.FC = () => {
         <section className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-4xl">
           <Alert variant="destructive" className="bg-rose-50 border-rose-200 text-rose-800">
             <Info className="h-4 w-4 text-rose-600" />
-            <AlertTitle className="text-rose-950 font-bold">আবেদন জমা দিতে সমস্যা হয়েছে</AlertTitle>
+            <AlertTitle className="text-rose-950 font-bold">{isEn ? 'Failed to Submit Application' : 'আবেদন জমা দিতে সমস্যা হয়েছে'}</AlertTitle>
             <AlertDescription className="text-rose-800 text-xs mt-1">
               {submitError}
             </AlertDescription>
@@ -128,12 +129,14 @@ export const AdmissionPage: React.FC = () => {
           </div>
 
           <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-6 shadow-xs space-y-3">
-            <h4 className="font-bold text-emerald-950 text-sm">প্রয়োজনীয় কাগজপত্র:</h4>
+            <h4 className="font-bold text-emerald-950 text-sm">
+              {isEn ? 'Required Documents:' : 'প্রয়োজনীয় কাগজপত্র:'}
+            </h4>
             <ul className="space-y-2 text-xs text-emerald-900">
-              <li>• জাতীয় পরিচয়পত্র / জন্মনিবন্ধন কপি</li>
-              <li>• কলেজ / বিশ্ববিদ্যালয় স্টুডেন্ট আইডি</li>
-              <li>• সদ্য তোলা ২ কপি পাসপোর্ট সাইজ ছবি</li>
-              <li>• অভিভাবকের জাতীয় পরিচয়পত্রের কপি</li>
+              <li>{isEn ? '• National ID / Birth Certificate copy' : '• জাতীয় পরিচয়পত্র / জন্মনিবন্ধন কপি'}</li>
+              <li>{isEn ? '• College / University Student ID' : '• কলেজ / বিশ্ববিদ্যালয় স্টুডেন্ট আইডি'}</li>
+              <li>{isEn ? '• 2 Passport size recent photographs' : '• সদ্য তোলা ২ কপি পাসপোর্ট সাইজ ছবি'}</li>
+              <li>{isEn ? '• Guardian National ID copy' : '• অভিভাবকের জাতীয় পরিচয়পত্রের কপি'}</li>
             </ul>
           </div>
         </div>
@@ -157,7 +160,9 @@ export const AdmissionPage: React.FC = () => {
                 </div>
               </div>
               <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                এই ট্র্যাকিং কোডটি সংরক্ষণ করুন। আবেদন অনুমোদিত হলে আপনাকে এসএমএস ও ইমেইলে অবগত করা হবে।
+                {isEn
+                  ? 'Save this tracking code. You will be notified via SMS and email when your application is reviewed.'
+                  : 'এই ট্র্যাকিং কোডটি সংরক্ষণ করুন। আবেদন অনুমোদিত হলে আপনাকে এসএমএস ও ইমেইলে অবগত করা হবে।'}
               </p>
               <div className="pt-4 border-t border-gray-100">
                 <Button onClick={handleReset} variant="outline" className="font-medium">
@@ -173,7 +178,7 @@ export const AdmissionPage: React.FC = () => {
               <div className="border-b pb-3">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                   <User className="w-5 h-5 text-emerald-600" />
-                  <span>শিক্ষার্থীর ব্যক্তিগত তথ্য (Student Details)</span>
+                  <span>{isEn ? 'Student Personal Details' : 'শিক্ষার্থীর ব্যক্তিগত তথ্য'}</span>
                 </h2>
               </div>
 
@@ -182,7 +187,7 @@ export const AdmissionPage: React.FC = () => {
                   <Label htmlFor="applicantName">{t('admission.name_label')}</Label>
                   <Input
                     id="applicantName"
-                    placeholder="যেমন: তানভীর আহমেদ"
+                    placeholder={isEn ? 'e.g. Tanvir Ahmed' : 'যেমন: তানভীর আহমেদ'}
                     error={!!errors.applicantName}
                     {...register('applicantName')}
                   />
@@ -240,9 +245,9 @@ export const AdmissionPage: React.FC = () => {
                     {...register('gender')}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   >
-                    <option value="MALE">পুরুষ (Male)</option>
-                    <option value="FEMALE">মহিলা (Female)</option>
-                    <option value="OTHER">অন্যান্য (Other)</option>
+                    <option value="MALE">{isEn ? 'Male' : 'পুরুষ'}</option>
+                    <option value="FEMALE">{isEn ? 'Female' : 'মহিলা'}</option>
+                    <option value="OTHER">{isEn ? 'Other' : 'অন্যান্য'}</option>
                   </select>
                 </div>
               </div>
@@ -250,7 +255,7 @@ export const AdmissionPage: React.FC = () => {
               <div className="border-b pt-4 pb-3">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                   <Home className="w-5 h-5 text-emerald-600" />
-                  <span>রুম প্রেফারেন্স (Room Preference)</span>
+                  <span>{isEn ? 'Room Preference' : 'রুম প্রেফারেন্স'}</span>
                 </h2>
               </div>
 
@@ -261,16 +266,16 @@ export const AdmissionPage: React.FC = () => {
                   {...register('preferredRoomType')}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  <option value="SINGLE">সিঙ্গেল রুম — ১ বেড (৳ ৮,০০০/মাস)</option>
-                  <option value="DOUBLE">ডাবল রুম — ২ বেড (৳ ৫,০০০/মাস)</option>
-                  <option value="QUAD">ফোর-বেড রুম — ৪ বেড (৳ ৩,৫০০/মাস)</option>
+                  <option value="SINGLE">{isEn ? 'Single Room — 1 Bed (৳ 8,000/mo)' : 'সিঙ্গেল রুম — ১ বেড (৳ ৮,০০০/মাস)'}</option>
+                  <option value="DOUBLE">{isEn ? 'Double Room — 2 Beds (৳ 5,000/mo)' : 'ডাবল রুম — ২ বেড (৳ ৫,০০০/মাস)'}</option>
+                  <option value="QUAD">{isEn ? 'Four-Bed Room — 4 Beds (৳ 3,500/mo)' : 'ফোর-বেড রুম — ৪ বেড (৳ ৩,৫০০/মাস)'}</option>
                 </select>
               </div>
 
               <div className="border-b pt-4 pb-3">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                   <Users className="w-5 h-5 text-emerald-600" />
-                  <span>অভিভাবকের তথ্য (Guardian Details)</span>
+                  <span>{isEn ? 'Guardian Details' : 'অভিভাবকের তথ্য'}</span>
                 </h2>
               </div>
 
@@ -279,7 +284,7 @@ export const AdmissionPage: React.FC = () => {
                   <Label htmlFor="guardianName">{t('admission.guardian_name_label')}</Label>
                   <Input
                     id="guardianName"
-                    placeholder="অভিভাবকের পুরো নাম"
+                    placeholder={isEn ? "Guardian's full name" : 'অভিভাবকের পুরো নাম'}
                     error={!!errors.guardianName}
                     {...register('guardianName')}
                   />
@@ -289,10 +294,10 @@ export const AdmissionPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="guardianRelation">সম্পর্ক (Relation) *</Label>
+                  <Label htmlFor="guardianRelation">{isEn ? 'Relationship *' : 'সম্পর্ক *'}</Label>
                   <Input
                     id="guardianRelation"
-                    placeholder="পিতা / মাতা / ভাই"
+                    placeholder={isEn ? 'Father / Mother / Brother' : 'পিতা / মাতা / ভাই'}
                     error={!!errors.guardianRelation}
                     {...register('guardianRelation')}
                   />
@@ -320,7 +325,7 @@ export const AdmissionPage: React.FC = () => {
                 <Textarea
                   id="address"
                   rows={3}
-                  placeholder="গ্রাম/বাড়ি নং, রোড নং, পোস্ট কোড, থানা, জেলা"
+                  placeholder={isEn ? 'Village/House, Road, Post code, Police Station, District' : 'গ্রাম/বাড়ি নং, রোড নং, পোস্ট কোড, থানা, জেলা'}
                   error={!!errors.address}
                   {...register('address')}
                 />
@@ -337,7 +342,7 @@ export const AdmissionPage: React.FC = () => {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>প্রক্রিয়াধীন রয়েছে...</span>
+                    <span>{isEn ? 'Submitting Application...' : 'প্রক্রিয়াধীন রয়েছে...'}</span>
                   </>
                 ) : (
                   <>

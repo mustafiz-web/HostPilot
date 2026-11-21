@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency } from '@/lib/formatters';
 
 interface RealRoom {
   id: string;
@@ -171,18 +172,26 @@ export const RoomsPage: React.FC = () => {
         ) : isError ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 p-8 space-y-3">
             <AlertCircle className="w-10 h-10 text-red-500 mx-auto" />
-            <h3 className="text-base font-bold text-slate-800">রুম তালিকা লোড করা সম্ভব হয়নি</h3>
-            <p className="text-xs text-slate-500">ডাটাবেজ সংযোগে সমস্যা হতে পারে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।</p>
+            <h3 className="text-base font-bold text-slate-800">
+              {isEn ? 'Could not load room list' : 'রুম তালিকা লোড করা সম্ভব হয়নি'}
+            </h3>
+            <p className="text-xs text-slate-500">
+              {isEn ? 'Database connection error. Please try again.' : 'ডাটাবেজ সংযোগে সমস্যা হতে পারে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।'}
+            </p>
             <Button size="sm" onClick={() => refetch()} className="gap-1.5">
               <RefreshCw className="w-4 h-4" />
-              <span>পুনরায় লোড করুন</span>
+              <span>{isEn ? 'Reload' : 'পুনরায় লোড করুন'}</span>
             </Button>
           </div>
         ) : filteredRooms.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 p-8 space-y-3">
             <Bed className="w-12 h-12 text-slate-300 mx-auto" />
-            <h3 className="text-base font-bold text-slate-800">কোনো রুম খুঁজে পাওয়া যায়নি</h3>
-            <p className="text-xs text-slate-400">ফিল্টার পরিবর্তন করে পুনরায় চেষ্টা করুন।</p>
+            <h3 className="text-base font-bold text-slate-800">
+              {isEn ? 'No rooms found' : 'কোনো রুম খুঁজে পাওয়া যায়নি'}
+            </h3>
+            <p className="text-xs text-slate-400">
+              {isEn ? 'Try changing filters or searching again.' : 'ফিল্টার পরিবর্তন করে পুনরায় চেষ্টা করুন।'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -215,7 +224,7 @@ export const RoomsPage: React.FC = () => {
                         />
                       </div>
                       <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-xs text-white text-xs px-2.5 py-1 rounded-md font-medium">
-                        {isEn ? `Floor ${room.floor}` : `${room.floor}ম তলা`} — রুম {room.roomNumber}
+                        {isEn ? `Floor ${room.floor} — Room ${room.roomNumber}` : `${room.floor}ম তলা — রুম ${room.roomNumber}`}
                       </div>
                     </div>
 
@@ -234,18 +243,20 @@ export const RoomsPage: React.FC = () => {
                           {t('rooms.monthly_rent')}
                         </span>
                         <span className="text-2xl font-extrabold text-emerald-700">
-                          ৳ {Number(room.monthlyRent).toLocaleString('en-US')}
-                          <span className="text-xs font-normal text-gray-500"> / মাস</span>
+                          {formatCurrency(room.monthlyRent)}
+                          <span className="text-xs font-normal text-gray-500"> {isEn ? '/ mo' : '/ মাস'}</span>
                         </span>
                       </div>
 
                       {/* Bed Capacity Indicator */}
                       <div className="space-y-1.5">
                         <div className="flex justify-between text-xs text-gray-600">
-                          <span>সিট প্রাপ্যতা:</span>
+                          <span>{isEn ? 'Bed Availability:' : 'সিট প্রাপ্যতা:'}</span>
                           <span className="font-semibold text-gray-900">
                             {isFull
-                              ? 'স্টক আউট (কোনো সিট খালি নেই)'
+                              ? (isEn ? 'Fully Occupied (No bed available)' : 'স্টক আউট (কোনো সিট খালি নেই)')
+                              : isEn
+                              ? `${room.availableBedsCount} of ${room.capacity} beds available`
                               : `${room.availableBedsCount} ${t('rooms.beds_available')} ${room.capacity}`}
                           </span>
                         </div>
@@ -290,7 +301,7 @@ export const RoomsPage: React.FC = () => {
                       disabled={!isAvailable}
                     >
                       <Link to="/admission">
-                        <span>{isAvailable ? t('rooms.apply_now') : 'স্টক আউট'}</span>
+                        <span>{isAvailable ? t('rooms.apply_now') : (isEn ? 'Fully Occupied' : 'স্টক আউট')}</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
                     </Button>
@@ -313,7 +324,7 @@ export const RoomsPage: React.FC = () => {
                 <>
                   <DialogHeader>
                     <DialogTitle className="text-xl">
-                      {isEn ? meta.labelEn : meta.labelBn} — রুম {selectedRoom.roomNumber}
+                      {isEn ? `${meta.labelEn} — Room ${selectedRoom.roomNumber}` : `${meta.labelBn} — রুম ${selectedRoom.roomNumber}`}
                     </DialogTitle>
                     <DialogDescription>
                       {isEn ? `Floor ${selectedRoom.floor}` : `${selectedRoom.floor}ম তলা`} | {isEn ? meta.descEn : meta.descBn}
@@ -331,22 +342,24 @@ export const RoomsPage: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-lg text-xs">
                       <div>
-                        <span className="text-gray-500 block">মাসিক ভাড়া:</span>
+                        <span className="text-gray-500 block">{isEn ? 'Monthly Rent:' : 'মাসিক ভাড়া:'}</span>
                         <span className="font-bold text-base text-emerald-700">
-                          ৳ {Number(selectedRoom.monthlyRent).toLocaleString()} / মাস
+                          {formatCurrency(selectedRoom.monthlyRent)} {isEn ? '/ mo' : '/ মাস'}
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-500 block">আসন প্রাপ্যতা:</span>
+                        <span className="text-gray-500 block">{isEn ? 'Bed Availability:' : 'আসন প্রাপ্যতা:'}</span>
                         <span className="font-bold text-sm text-gray-900">
-                          {selectedRoom.availableBedsCount} টি খালি (মোট {selectedRoom.capacity} টি)
+                          {isEn
+                            ? `${selectedRoom.availableBedsCount} available (total ${selectedRoom.capacity})`
+                            : `${selectedRoom.availableBedsCount} টি খালি (মোট ${selectedRoom.capacity} টি)`}
                         </span>
                       </div>
                     </div>
 
                     <div className="space-y-2">
                       <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
-                        সুযোগ-সুবিধাসমূহ (Amenities):
+                        {isEn ? 'Included Amenities:' : 'সুযোগ-সুবিধাসমূহ (Amenities):'}
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {(isEn ? meta.featuresEn : meta.featuresBn).map((feat, i) => (
@@ -361,7 +374,7 @@ export const RoomsPage: React.FC = () => {
 
                   <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-between items-stretch sm:items-center border-t pt-4">
                     <Button variant="outline" className="w-full sm:w-auto" onClick={() => setSelectedRoom(null)}>
-                      বন্ধ করুন
+                      {isEn ? 'Close' : 'বন্ধ করুন'}
                     </Button>
                     <Button
                       asChild
@@ -369,7 +382,7 @@ export const RoomsPage: React.FC = () => {
                       className="w-full sm:w-auto gap-1.5"
                     >
                       <Link to="/admission" onClick={() => setSelectedRoom(null)}>
-                        <span>{isAvail ? t('rooms.apply_now') : 'স্টক আউট'}</span>
+                        <span>{isAvail ? t('rooms.apply_now') : (isEn ? 'Fully Occupied' : 'স্টক আউট')}</span>
                         <ArrowRight className="w-4 h-4" />
                       </Link>
                     </Button>

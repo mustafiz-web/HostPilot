@@ -43,6 +43,14 @@ export interface NoticeItem {
   createdAt: string;
 }
 
+function formatNoticeCategory(cat: string, isEn: boolean) {
+  if (cat === 'ভর্তি' || cat === 'ADMISSION') return isEn ? 'Admission' : 'ভর্তি';
+  if (cat === 'ডাইনিং' || cat === 'DINING') return isEn ? 'Dining' : 'ডাইনিং';
+  if (cat === 'সাধারণ' || cat === 'GENERAL') return isEn ? 'General' : 'সাধারণ';
+  if (cat === 'জরুরি' || cat === 'URGENT') return isEn ? 'Urgent' : 'জরুরি';
+  return cat;
+}
+
 export const NoticesPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const isEn = i18n.language?.startsWith('en');
@@ -197,7 +205,7 @@ export const NoticesPage: React.FC = () => {
                         </span>
                       )}
                       <Badge variant="outline" className="text-xs">
-                        {notice.category}
+                        {formatNoticeCategory(notice.category, !!isEn)}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -250,7 +258,7 @@ export const NoticesPage: React.FC = () => {
             <DialogHeader>
               <div className="flex items-center gap-2 mb-1">
                 <Badge variant="outline" className="text-xs">
-                  {activeNotice.category}
+                  {formatNoticeCategory(activeNotice.category, !!isEn)}
                 </Badge>
                 {activeNotice.isPinned && (
                   <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">

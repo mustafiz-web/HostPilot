@@ -87,8 +87,10 @@ class ApiClient {
 
     if (!response.ok || json.success === false) {
       const code = json.error?.code || `HTTP_${response.status}`;
+      const isEn = typeof window !== 'undefined' && window.localStorage?.getItem('i18nextLng')?.startsWith('en');
+      const fallbackMsg = isEn ? 'An unexpected error occurred' : 'একটি অপ্রত্যাশিত ত্রুটি ঘটেছে';
       const message =
-        json.error?.message || response.statusText || 'একটি অপ্রত্যাশিত ত্রুটি ঘটেছে';
+        json.error?.message || response.statusText || fallbackMsg;
       const details = json.error?.details;
 
       // Handle 401 Unauthorized globally: clear stale in-memory token

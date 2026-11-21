@@ -24,6 +24,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/formatters';
 
 export interface NoticeItem {
   id: string;
@@ -92,7 +93,7 @@ export const StudentNoticesPage: React.FC = () => {
             <span>{t('student.nav.notices')}</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            {t('notices.subtitle')}
+            {t('student.notices.subtitle')}
           </p>
         </div>
       </div>
@@ -102,7 +103,7 @@ export const StudentNoticesPage: React.FC = () => {
         <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <Input
-            placeholder={isEn ? 'Search notices...' : 'নোটিশ অনুসন্ধান করুন...'}
+            placeholder={t('student.notices.search_placeholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 h-9 text-xs sm:text-sm"
@@ -111,7 +112,7 @@ export const StudentNoticesPage: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <span className="text-xs text-slate-500 font-medium">
-            {isEn ? 'Category:' : 'ক্যাটাগরি:'}
+            {t('student.complaints.category_field')}:
           </span>
           <Button
             size="sm"
@@ -119,7 +120,7 @@ export const StudentNoticesPage: React.FC = () => {
             onClick={() => setSelectedCategory('ALL')}
             className="text-xs rounded-full h-8"
           >
-            {isEn ? 'All' : 'সকল নোটিশ'}
+            {t('student.notices.filter_all')}
           </Button>
           <Button
             size="sm"
@@ -143,7 +144,7 @@ export const StudentNoticesPage: React.FC = () => {
             onClick={() => setSelectedCategory('সাধারণ')}
             className="text-xs rounded-full h-8"
           >
-            {isEn ? 'General' : 'সাধারণ'}
+            {t('student.notices.filter_general')}
           </Button>
           <Button
             size="sm"
@@ -151,7 +152,7 @@ export const StudentNoticesPage: React.FC = () => {
             onClick={() => setSelectedCategory('জরুরি')}
             className="text-xs rounded-full h-8"
           >
-            {isEn ? 'Urgent' : 'জরুরি'}
+            {t('student.notices.filter_urgent')}
           </Button>
         </div>
       </div>
@@ -167,26 +168,24 @@ export const StudentNoticesPage: React.FC = () => {
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
           <h3 className="text-lg font-bold text-slate-800">
-            {isEn ? 'Failed to load notices' : 'নোটিশ লোড করা সম্ভব হয়নি'}
+            {t('student.complaints.error_load')}
           </h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            {(error as any)?.message || 'সার্ভার থেকে নোটিশ লোড করতে সমস্যা হয়েছে।'}
+            {(error as any)?.message || t('common.error_occurred')}
           </p>
           <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
             <RefreshCw className="w-4 h-4" />
-            <span>{isEn ? 'Retry' : 'পুনরায় লোড করুন'}</span>
+            <span>{t('common.retry')}</span>
           </Button>
         </div>
       ) : filteredNotices.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
           <FileText className="w-12 h-12 text-slate-300 mx-auto" />
           <h4 className="text-base font-bold text-slate-800">
-            {isEn ? 'No notices available' : 'কোনো নোটিশ পাওয়া যায়নি'}
+            {t('student.notices.no_notices')}
           </h4>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            {isEn
-              ? 'There are currently no active announcements published for students.'
-              : 'বর্তমানে শিক্ষার্থীদের জন্য কোনো সক্রিয় নোটিশ নেই। নতুন নোটিশ প্রকাশিত হলে এখানে দেখতে পাবেন।'}
+            {t('student.dashboard.no_notices')}
           </p>
         </div>
       ) : (
@@ -219,9 +218,7 @@ export const StudentNoticesPage: React.FC = () => {
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <Calendar className="w-3.5 h-3.5" />
                     <span>
-                      {notice.publishedAt
-                        ? new Date(notice.publishedAt).toLocaleDateString(isEn ? 'en-US' : 'bn-BD')
-                        : ''}
+                      {notice.publishedAt ? formatDate(notice.publishedAt) : ''}
                     </span>
                   </div>
                 </div>
@@ -245,7 +242,7 @@ export const StudentNoticesPage: React.FC = () => {
                     className="text-xs text-emerald-700 hover:text-emerald-800 gap-1"
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    <span>{isEn ? 'Read Details' : 'সম্পূর্ণ পড়ুন'}</span>
+                    <span>{t('student.notices.read_more')}</span>
                   </Button>
                 </div>
               </div>
@@ -269,9 +266,7 @@ export const StudentNoticesPage: React.FC = () => {
                   </span>
                 )}
                 <span className="text-xs text-slate-400">
-                  {activeNotice.publishedAt
-                    ? new Date(activeNotice.publishedAt).toLocaleDateString(isEn ? 'en-US' : 'bn-BD')
-                    : ''}
+                  {activeNotice.publishedAt ? formatDate(activeNotice.publishedAt) : ''}
                 </span>
               </div>
               <DialogTitle className="text-lg leading-snug">
@@ -289,7 +284,7 @@ export const StudentNoticesPage: React.FC = () => {
 
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={() => setActiveNotice(null)}>
-                {isEn ? 'Close' : 'বন্ধ করুন'}
+                {t('common.close')}
               </Button>
             </DialogFooter>
           </DialogContent>

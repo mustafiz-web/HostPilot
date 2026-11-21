@@ -52,7 +52,7 @@ export const RegisterPage: React.FC = () => {
     address: '',
     preferredRoomType: 'DOUBLE' as 'SINGLE' | 'DOUBLE' | 'QUAD',
     guardianName: '',
-    guardianRelation: 'পিতা / মাতা',
+    guardianRelation: 'Parent',
     guardianPhone: '',
   });
 
@@ -191,9 +191,7 @@ export const RegisterPage: React.FC = () => {
       const msg =
         err?.response?.data?.error?.message ||
         err?.message ||
-        (isEn
-          ? 'Registration could not be completed. Please check your information.'
-          : 'নিবন্ধন প্রক্রিয়া সম্পন্ন করা যায়নি। অনুগ্রহ করে সকল তথ্য যাচাই করুন।');
+        t('common.something_went_wrong');
       setErrorMessage(msg);
 
       if (msg.toLowerCase().includes('email') || msg.includes('ইমেইল')) {
@@ -231,12 +229,10 @@ export const RegisterPage: React.FC = () => {
         </div>
 
         <h2 className="text-center text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900">
-          {isEn ? 'Student Self-Registration' : 'হোস্টেল শিক্ষার্থী স্ব-নিবন্ধন'}
+          {t('auth.register_title')}
         </h2>
         <p className="text-center text-xs sm:text-sm text-gray-600 max-w-md mx-auto">
-          {isEn
-            ? 'Create your student account to apply for hostel rooms and manage accommodation.'
-            : 'হোস্টেলে সিট বরাদ্দ ও রুমের জন্য আবেদন করতে আপনার শিক্ষার্থী অ্যাকাউন্ট তৈরি করুন।'}
+          {t('auth.register_subtitle')}
         </p>
       </div>
 
@@ -251,36 +247,34 @@ export const RegisterPage: React.FC = () => {
 
               <div className="space-y-2">
                 <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
-                  {isEn ? 'Registration Submitted Successfully!' : 'অ্যাকাউন্ট নিবন্ধন সফলভাবে সম্পন্ন হয়েছে!'}
+                  {t('auth.success_title')}
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto">
-                  {isEn
-                    ? 'Your account has been created in the database and is currently PENDING administrative approval.'
-                    : 'আপনার শিক্ষার্থী অ্যাকাউন্টটি ডাটাবেজে তৈরি হয়েছে এবং বর্তমানে প্রশাসনিক অনুমোদনের অপেক্ষায় রয়েছে।'}
+                  {t('auth.success_subtitle')}
                 </p>
               </div>
 
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2 text-left max-w-md mx-auto">
                 <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-500">{isEn ? 'Student Name:' : 'শিক্ষার্থীর নাম:'}</span>
+                  <span className="text-slate-500">{t('auth.full_name')}:</span>
                   <span className="font-bold text-slate-800">{successData.name}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-500">{isEn ? 'Registered Email:' : 'নিবন্ধিত ইমেইল:'}</span>
+                  <span className="text-slate-500">{t('auth.email')}:</span>
                   <span className="font-mono text-slate-800">{successData.email}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-500">{isEn ? 'Student Code (ID):' : 'স্টুডেন্ট আইডি কোড:'}</span>
+                  <span className="text-slate-500">{t('student.dashboard.meta_id')}:</span>
                   <span className="font-mono font-bold text-emerald-700">{successData.studentCode}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-500">{isEn ? 'Application No:' : 'ভর্তি আবেদন নম্বর:'}</span>
+                  <span className="text-slate-500">{t('admin.admissions.th_app_no')}:</span>
                   <span className="font-mono font-bold text-blue-700">{successData.applicationNumber}</span>
                 </div>
                 <div className="flex justify-between pt-1">
-                  <span className="text-slate-500">{isEn ? 'Account Status:' : 'অ্যাকাউন্ট স্ট্যাটাস:'}</span>
+                  <span className="text-slate-500">{t('common.status')}:</span>
                   <span className="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded text-[11px]">
-                    {isEn ? 'PENDING APPROVAL' : 'অনুমোদনের অপেক্ষায় (PENDING)'}
+                    {t('auth.status_pending')}
                   </span>
                 </div>
               </div>
@@ -288,9 +282,7 @@ export const RegisterPage: React.FC = () => {
               <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200/80 text-xs text-emerald-900 max-w-md mx-auto flex items-start gap-2.5 text-left">
                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                 <p className="leading-relaxed">
-                  {isEn
-                    ? 'Hostel administration will review your submitted profile. Once approved, you can log in directly with your registered email and password to access the Student Dashboard.'
-                    : 'হোস্টেল প্রশাসন আপনার তথ্য যাচাই করে অ্যাকাউন্ট অনুমোদন করবেন। অনুমোদন সম্পন্ন হলে আপনার নিবন্ধিত ইমেইল ও পাসওয়ার্ড দিয়ে সরাসরি স্টুডেন্ট ড্যাশবোর্ডে লগইন করতে পারবেন।'}
+                  {t('auth.success_instructions')}
                 </p>
               </div>
 
@@ -299,14 +291,14 @@ export const RegisterPage: React.FC = () => {
                   onClick={() => navigate('/login')}
                   className="bg-emerald-600 hover:bg-emerald-700 font-semibold px-8 shadow-xs"
                 >
-                  {isEn ? 'Go to Login Page' : 'লগইন পেজে যান'}
+                  {t('auth.btn_go_login')}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => navigate('/')}
                   className="font-medium"
                 >
-                  {isEn ? 'Back to Website' : 'মূল ওয়েবসাইটে ফিরুন'}
+                  {t('auth.back_to_site')}
                 </Button>
               </div>
             </div>
@@ -324,18 +316,18 @@ export const RegisterPage: React.FC = () => {
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
                   <User className="w-4 h-4 text-emerald-600" />
-                  <span>{isEn ? '1. Personal & Contact Information' : '১. ব্যক্তিগত ও যোগাযোগের তথ্য'}</span>
+                  <span>{t('auth.sec_personal')}</span>
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label htmlFor="reg-name" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Full Name *' : 'পূর্ণ নাম *'}
+                      {t('auth.full_name')} *
                     </Label>
                     <Input
                       id="reg-name"
                       required
-                      placeholder={isEn ? 'e.g. Tanvir Ahmed' : 'যেমন: তানভীর আহমেদ'}
+                      placeholder="Farhan Ahmed"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className={`h-9 text-xs ${fieldErrors.name ? 'border-rose-500' : ''}`}
@@ -347,7 +339,7 @@ export const RegisterPage: React.FC = () => {
 
                   <div className="space-y-1">
                     <Label htmlFor="reg-email" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Email Address (Used for Login) *' : 'ইমেইল ঠিকানা (লগইনের জন্য) *'}
+                      {t('auth.email')} *
                     </Label>
                     <Input
                       id="reg-email"
@@ -370,7 +362,7 @@ export const RegisterPage: React.FC = () => {
 
                   <div className="space-y-1">
                     <Label htmlFor="reg-phone" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Phone Number (11 Digits) *' : 'মোবাইল নম্বর (১১ ডিজিট) *'}
+                      {t('auth.phone')} *
                     </Label>
                     <Input
                       id="reg-phone"
@@ -387,7 +379,7 @@ export const RegisterPage: React.FC = () => {
 
                   <div className="space-y-1">
                     <Label htmlFor="reg-gender" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Gender *' : 'লিঙ্গ *'}
+                      {t('auth.gender')} *
                     </Label>
                     <select
                       id="reg-gender"
@@ -395,9 +387,9 @@ export const RegisterPage: React.FC = () => {
                       onChange={(e) => setFormData({ ...formData, gender: e.target.value as any })}
                       className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-emerald-600"
                     >
-                      <option value="MALE">{isEn ? 'Male' : 'পুরুষ (Male)'}</option>
-                      <option value="FEMALE">{isEn ? 'Female' : 'মহিলা (Female)'}</option>
-                      <option value="OTHER">{isEn ? 'Other' : 'অন্যান্য (Other)'}</option>
+                      <option value="MALE">{t('auth.gender_male')}</option>
+                      <option value="FEMALE">{t('auth.gender_female')}</option>
+                      <option value="OTHER">{t('auth.gender_other')}</option>
                     </select>
                   </div>
                 </div>
@@ -407,17 +399,17 @@ export const RegisterPage: React.FC = () => {
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
                   <GraduationCap className="w-4 h-4 text-emerald-600" />
-                  <span>{isEn ? '2. Academic Information (If Applicable)' : '২. অ্যাকাডেমিক ও শিক্ষার্থী তথ্য'}</span>
+                  <span>{t('auth.sec_academic')}</span>
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label htmlFor="reg-roll" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Student ID / Roll Number' : 'স্টুডেন্ট আইডি / রোল নম্বর'}
+                      {t('auth.roll_number')}
                     </Label>
                     <Input
                       id="reg-roll"
-                      placeholder="e.g. 2026-CSE-088"
+                      placeholder="2026-CSE-088"
                       value={formData.rollNumber}
                       onChange={(e) => setFormData({ ...formData, rollNumber: e.target.value })}
                       className="h-9 text-xs font-mono"
@@ -426,11 +418,11 @@ export const RegisterPage: React.FC = () => {
 
                   <div className="space-y-1">
                     <Label htmlFor="reg-dept" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Department / Subject' : 'বিভাগ / বিষয়'}
+                      {t('auth.department')}
                     </Label>
                     <Input
                       id="reg-dept"
-                      placeholder="e.g. Computer Science & Engineering"
+                      placeholder="Computer Science & Engineering"
                       value={formData.department}
                       onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                       className="h-9 text-xs"
@@ -438,21 +430,8 @@ export const RegisterPage: React.FC = () => {
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="reg-inst" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Institution / College Name' : 'শিক্ষাপ্রতিষ্ঠানের নাম'}
-                    </Label>
-                    <Input
-                      id="reg-inst"
-                      placeholder={isEn ? 'e.g. Dhaka University' : 'যেমন: ঢাকা বিশ্ববিদ্যালয়'}
-                      value={formData.institution}
-                      onChange={(e) => setFormData({ ...formData, institution: e.target.value })}
-                      className="h-9 text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
                     <Label htmlFor="reg-roompref" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Preferred Room Type' : 'পছন্দের রুমের ধরন'}
+                      {t('auth.room_preference')}
                     </Label>
                     <select
                       id="reg-roompref"
@@ -462,9 +441,9 @@ export const RegisterPage: React.FC = () => {
                       }
                       className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-emerald-600"
                     >
-                      <option value="DOUBLE">{isEn ? 'Double Shared (2 Beds)' : 'ডাবল শেয়ার্ড (২ বেড)'}</option>
-                      <option value="SINGLE">{isEn ? 'Single Room (1 Bed)' : 'একক রুম (১ বেড)'}</option>
-                      <option value="QUAD">{isEn ? 'Four-Bed Dormitory (4 Beds)' : 'ফোর-বেড ডরমেটরি (৪ বেড)'}</option>
+                      <option value="DOUBLE">{t('admin.rooms.type_double')}</option>
+                      <option value="SINGLE">{t('admin.rooms.type_single')}</option>
+                      <option value="QUAD">{t('admin.rooms.type_quad')}</option>
                     </select>
                   </div>
                 </div>
@@ -474,17 +453,17 @@ export const RegisterPage: React.FC = () => {
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
                   <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span>{isEn ? '3. Address & Emergency Contact' : '৩. ঠিকানা ও জরুরি যোগাযোগ'}</span>
+                  <span>{t('auth.sec_guardian')}</span>
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1 sm:col-span-2">
                     <Label htmlFor="reg-addr" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Address (Permanent / Present)' : 'ঠিকানা (স্থায়ী / বর্তমান)'}
+                      {t('auth.address')}
                     </Label>
                     <Input
                       id="reg-addr"
-                      placeholder={isEn ? 'House/Village, Thana, District' : 'গ্রাম/বাড়ি, থানা ও জেলা'}
+                      placeholder="Dhanmondi, Dhaka"
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       className="h-9 text-xs"
@@ -493,11 +472,11 @@ export const RegisterPage: React.FC = () => {
 
                   <div className="space-y-1">
                     <Label htmlFor="reg-gname" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Emergency Contact / Guardian Name' : 'জরুরি যোগাযোগ / অভিভাবকের নাম'}
+                      {t('auth.guardian_name')}
                     </Label>
                     <Input
                       id="reg-gname"
-                      placeholder={isEn ? 'Parent / Guardian Name' : 'অভিভাবকের নাম'}
+                      placeholder="Rafiq Ahmed"
                       value={formData.guardianName}
                       onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
                       className="h-9 text-xs"
@@ -506,7 +485,7 @@ export const RegisterPage: React.FC = () => {
 
                   <div className="space-y-1">
                     <Label htmlFor="reg-gphone" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Emergency Contact Phone' : 'জরুরি যোগাযোগ নম্বর'}
+                      {t('auth.guardian_phone')}
                     </Label>
                     <Input
                       id="reg-gphone"
@@ -519,76 +498,81 @@ export const RegisterPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* 4. Password & Security */}
+              {/* 4. Password Security */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
                   <KeyRound className="w-4 h-4 text-emerald-600" />
-                  <span>{isEn ? '4. Password & Account Security' : '৪. পাসওয়ার্ড ও অ্যাকাউন্ট নিরাপত্তা'}</span>
+                  <span>{t('auth.sec_security')}</span>
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label htmlFor="reg-pass" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Password * (min 6 characters)' : 'পাসওয়ার্ড * (কমপক্ষে ৬ অক্ষর)'}
+                    <Label htmlFor="reg-pwd" className="text-xs font-semibold text-slate-700">
+                      {t('auth.password')} *
                     </Label>
                     <div className="relative">
                       <Input
-                        id="reg-pass"
+                        id="reg-pwd"
                         type={showPassword ? 'text' : 'password'}
                         required
-                        placeholder="••••••••"
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        className={`h-9 text-xs pr-9 ${fieldErrors.password ? 'border-rose-500' : ''}`}
+                        className={`h-9 text-xs pr-8 ${fieldErrors.password ? 'border-rose-500' : ''}`}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 transition-colors"
-                        aria-label="Toggle password visibility"
+                        className="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    {fieldErrors.password && (
-                      <p className="text-[11px] text-rose-600">{fieldErrors.password}</p>
-                    )}
+                    {/* Strength Indicator */}
                     {formData.password && (
                       <div className="space-y-1 pt-1">
-                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
                           <div
-                            className={`h-full transition-all duration-300 ${passwordStrength.color.split(' ')[0]}`}
+                            className={`h-full ${passwordStrength.color} transition-all duration-300`}
                             style={{ width: passwordStrength.width }}
                           />
                         </div>
-                        <p className={`text-[10px] font-semibold ${passwordStrength.color.split(' ')[1]}`}>
+                        <span className={`text-[10px] font-medium ${passwordStrength.color}`}>
                           {passwordStrength.label}
-                        </p>
+                        </span>
                       </div>
+                    )}
+                    {fieldErrors.password && (
+                      <p className="text-[11px] text-rose-600">{fieldErrors.password}</p>
                     )}
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="reg-cpass" className="text-xs font-semibold text-slate-700">
-                      {isEn ? 'Confirm Password *' : 'পাসওয়ার্ড নিশ্চিত করুন *'}
+                    <Label htmlFor="reg-cpwd" className="text-xs font-semibold text-slate-700">
+                      {t('auth.confirm_password')} *
                     </Label>
                     <div className="relative">
                       <Input
-                        id="reg-cpass"
+                        id="reg-cpwd"
                         type={showConfirmPassword ? 'text' : 'password'}
                         required
-                        placeholder="••••••••"
                         value={formData.confirmPassword}
-                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                        className={`h-9 text-xs pr-9 ${fieldErrors.confirmPassword ? 'border-rose-500' : ''}`}
+                        onChange={(e) =>
+                          setFormData({ ...formData, confirmPassword: e.target.value })
+                        }
+                        className={`h-9 text-xs pr-8 ${
+                          fieldErrors.confirmPassword ? 'border-rose-500' : ''
+                        }`}
                       />
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 transition-colors"
-                        aria-label="Toggle confirm password visibility"
+                        className="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
                       >
-                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showConfirmPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                     {fieldErrors.confirmPassword && (
@@ -598,31 +582,20 @@ export const RegisterPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full font-semibold shadow-xs py-5 mt-4 text-sm bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 font-semibold shadow-xs py-5 text-sm mt-4 text-white"
               >
                 {isSubmitting ? (
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>{isEn ? 'Creating Account in Database...' : 'ডাটাবেজে অ্যাকাউন্ট তৈরি হচ্ছে...'}</span>
-                  </span>
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    <span>{t('auth.submitting')}</span>
+                  </>
                 ) : (
-                  <span>{isEn ? 'Complete Student Registration' : 'শিক্ষার্থী নিবন্ধন সম্পন্ন করুন'}</span>
+                  <span>{t('auth.btn_register')}</span>
                 )}
               </Button>
-
-              {/* Footer link to Login */}
-              <div className="text-center pt-2">
-                <p className="text-xs text-slate-600">
-                  {t('auth.already_registered')}{' '}
-                  <Link to="/login" className="text-emerald-700 font-bold hover:underline">
-                    {t('auth.login_link')}
-                  </Link>
-                </p>
-              </div>
             </form>
           )}
         </div>

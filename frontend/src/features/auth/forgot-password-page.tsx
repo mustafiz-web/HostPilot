@@ -52,9 +52,12 @@ export const ForgotPasswordPage: React.FC = () => {
               <div className="h-12 w-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900">পাসওয়ার্ড রিসেট অনুরোধ গৃহীত</h3>
+              <h3 className="text-lg font-bold text-gray-900">{t('auth.reset_requested_title', 'Password Reset Request Received')}</h3>
               <p className="text-xs text-gray-600 leading-relaxed">
-                আপনার ইমেইল <strong className="text-gray-900">{email}</strong> অ্যাডমিন সিস্টেমে রেকর্ড করা হয়েছে। হোস্টেল সুপারভাইজার আপনার পরিচয় যাচাই করে একটি সাময়িক পাসওয়ার্ড প্রদান করবেন।
+                {t(
+                  'auth.reset_requested_desc',
+                  'Your reset request has been logged. The hostel administration will verify your identity and issue temporary login credentials.'
+                )}
               </p>
               <Button asChild variant="outline" className="w-full mt-2">
                 <Link to="/login">{t('auth.back_to_login')}</Link>
@@ -64,9 +67,12 @@ export const ForgotPasswordPage: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <Alert variant="info" className="bg-sky-50 border-sky-200">
                 <Info className="h-4 w-4 text-sky-600" />
-                <AlertTitle className="text-xs font-bold text-sky-950">MVP পলিসি নোটিশ</AlertTitle>
+                <AlertTitle className="text-xs font-bold text-sky-950">{t('auth.policy_notice', 'Security Policy Notice')}</AlertTitle>
                 <AlertDescription className="text-xs text-sky-800">
-                  নিরাপত্তার স্বার্থে পাসওয়ার্ড ভুলে গেলে অ্যাডমিন কর্তৃক স্টুডেন্ট আইডি ও ফোন নম্বর যাচাইয়ের মাধ্যমে রিসেট সহায়তা প্রদান করা হয়।
+                  {t(
+                    'auth.policy_notice_desc',
+                    'For security verification, password reset requests are verified by hostel administration via student roll number and registered phone.'
+                  )}
                 </AlertDescription>
               </Alert>
 
@@ -96,7 +102,7 @@ export const ForgotPasswordPage: React.FC = () => {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    <span>অনুরোধ পাঠানো হচ্ছে...</span>
+                    <span>{t('auth.submitting_request', 'Submitting request...')}</span>
                   </>
                 ) : (
                   <span>{t('auth.forgot_btn')}</span>

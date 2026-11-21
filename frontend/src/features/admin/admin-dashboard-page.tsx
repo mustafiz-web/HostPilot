@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency, formatNumber } from '@/lib/formatters';
 
 interface AdminDashboardData {
   stats: {
@@ -131,23 +132,23 @@ export const AdminDashboardPage: React.FC = () => {
   const statCards = [
     {
       label: t('admin.dashboard.stat_students'),
-      value: isEn ? `${stats.totalStudents}` : `${stats.totalStudents} জন`,
+      value: `${formatNumber(stats.totalStudents)}${isEn ? '' : ' জন'}`,
       icon: Users,
-      sub: `${stats.activeStudents} ${t('admin.dashboard.stat_students_sub')}`,
+      sub: `${formatNumber(stats.activeStudents)} ${t('admin.dashboard.stat_students_sub')}`,
       color: 'text-emerald-600',
       bg: 'bg-emerald-50',
     },
     {
       label: t('admin.dashboard.stat_beds'),
-      value: isEn ? `${stats.totalBeds}` : `${stats.totalBeds} টি`,
+      value: `${formatNumber(stats.totalBeds)}${isEn ? '' : ' টি'}`,
       icon: Bed,
-      sub: `${stats.availableBeds} ${t('admin.dashboard.stat_beds_sub')}`,
+      sub: `${formatNumber(stats.availableBeds)} ${t('admin.dashboard.stat_beds_sub')}`,
       color: 'text-blue-600',
       bg: 'bg-blue-50',
     },
     {
       label: t('admin.dashboard.stat_collection'),
-      value: `৳ ${stats.monthlyCollection.toLocaleString()}`,
+      value: formatCurrency(stats.monthlyCollection),
       icon: CreditCard,
       sub: t('admin.dashboard.stat_collection_sub'),
       color: 'text-purple-600',
@@ -155,9 +156,9 @@ export const AdminDashboardPage: React.FC = () => {
     },
     {
       label: t('admin.dashboard.stat_complaints'),
-      value: isEn ? `${stats.pendingComplaintsCount}` : `${stats.pendingComplaintsCount} টি`,
+      value: `${formatNumber(stats.pendingComplaintsCount)}${isEn ? '' : ' টি'}`,
       icon: AlertCircle,
-      sub: `${stats.pendingComplaintsCount} ${t('admin.dashboard.stat_complaints_sub')}`,
+      sub: `${formatNumber(stats.pendingComplaintsCount)} ${t('admin.dashboard.stat_complaints_sub')}`,
       color: 'text-amber-600',
       bg: 'bg-amber-50',
     },
@@ -312,7 +313,7 @@ export const AdminDashboardPage: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-sm text-emerald-700">
-                      ৳ {pay.paidAmount.toLocaleString()}
+                      {formatCurrency(pay.paidAmount)}
                     </div>
                     <StatusBadge status={pay.status} />
                   </div>

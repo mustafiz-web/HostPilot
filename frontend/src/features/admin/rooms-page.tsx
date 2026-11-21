@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  BedDouble,
   Plus,
   Building,
   AlertCircle,
@@ -15,7 +14,6 @@ import {
   Trash2,
   History,
   Wrench,
-  Users,
   ShieldAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -41,6 +39,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency, formatDate, formatNumber } from '@/lib/formatters';
 
 interface BedItem {
   id: string;
@@ -197,7 +196,7 @@ export const RoomsPage: React.FC = () => {
       });
     },
     onError: (err: any) => {
-      setAddError(err.message || 'রুম তৈরি করতে সমস্যা হয়েছে');
+      setAddError(err.message || t('common.error_occurred'));
     },
   });
 
@@ -214,14 +213,14 @@ export const RoomsPage: React.FC = () => {
       setEditError(null);
     },
     onError: (err: any) => {
-      setEditError(err.message || 'রুম আপডেট করতে সমস্যা হয়েছে');
+      setEditError(err.message || t('common.error_occurred'));
     },
   });
 
-  // Mutation: Delete Room (Safe Deletion)
+  // Mutation: Delete Room
   const deleteRoomMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiClient.delete<any>(`/rooms/${id}`);
+      const res = await apiClient.delete<{ message: string }>(`/rooms/${id}`);
       return res.data;
     },
     onSuccess: () => {
@@ -231,59 +230,89 @@ export const RoomsPage: React.FC = () => {
       setDeleteError(null);
     },
     onError: (err: any) => {
-      setDeleteError(err.message || 'রুম মুছে ফেলা সম্ভব হয়নি');
+      setDeleteError(err.message || t('common.error_occurred'));
     },
   });
 
-  // Mutation: Toggle Bed Maintenance Status
-  const toggleBedStatusMutation = useMutation({
-    mutationFn: async ({
-      roomId,
-      bedId,
-      status,
-    }: {
-      roomId: string;
-      bedId: string;
-      status: 'AVAILABLE' | 'MAINTENANCE';
-    }) => {
-      const res = await apiClient.patch<any>(`/rooms/${roomId}/beds/${bedId}`, { status });
+  // Mutation: Toggle Bed Maintenance
+  const toggleBedMutation = useMutation({
+    mutationFn: async ({ bedId, status }: { bedId: string; status: 'AVAILABLE' | 'MAINTENANCE' }) => {
+      const res = await apiClient.patch(`/rooms/beds/${bedId}/status`, { status });
       return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-rooms'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-metrics'] });
     },
     onError: (err: any) => {
-      alert(err.message || 'বেড স্ট্যাটাস পরিবর্তন করা সম্ভব হয়নি');
+      alert(err.message || t('common.error_occurred'));
     },
   });
 
-  // Mutation: Add Extra Bed
+  // Mutation: Add Single Bed to existing room
   const addBedMutation = useMutation({
     mutationFn: async ({ roomId, bedCode }: { roomId: string; bedCode: string }) => {
-      const res = await apiClient.post<any>(`/rooms/${roomId}/beds`, { bedCode });
+      const res = await apiClient.post(`/rooms/${roomId}/beds`, { bedCode });
       return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-rooms'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-metrics'] });
       setAddBedTarget(null);
       setNewBedCode('');
       setBedError(null);
     },
     onError: (err: any) => {
-      setBedError(err.message || 'নতুন বেড যোগ করা যায়নি');
+      setBedError(err.message || t('common.error_occurred'));
     },
   });
 
-  // Handlers
-  const handleAddRoom = (e: React.FormEvent) => {
+  // Distinct list of floors from dataset
+  const availableFloors = Array.from(new Set(rooms.map((r) => r.floor))).sort((a, b) => a - b);
+
+  // Client search and filter logic
+  const filteredRooms = rooms.filter((room) => {
+    // 1. Search term (room number, occupant student name, occupant code)
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      const matchRoom = room.roomNumber.toLowerCase().includes(term);
+      const matchOccupant = room.beds.some(
+        (b) =>
+          b.occupant?.studentName.toLowerCase().includes(term) ||
+          b.occupant?.studentCode.toLowerCase().includes(term) ||
+          b.occupant?.rollNumber.toLowerCase().includes(term)
+      );
+      if (!matchRoom && !matchOccupant) return false;
+    }
+
+    // 2. Floor filter
+    if (floorFilter !== 'ALL' && room.floor !== floorFilter) {
+      return false;
+    }
+
+    // 3. Status filter
+    if (statusFilter !== 'ALL') {
+      if (statusFilter === 'AVAILABLE' && room.availableBedsCount <= 0) return false;
+      if (statusFilter === 'FULL' && room.status !== 'FULL') return false;
+      if (statusFilter === 'MAINTENANCE' && room.status !== 'MAINTENANCE') return false;
+    }
+
+    // 4. Type filter
+    if (typeFilter !== 'ALL' && room.roomType !== typeFilter) {
+      return false;
+    }
+
+    return true;
+  });
+
+  const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setAddError(null);
     addRoomMutation.mutate(newRoom);
   };
 
-  const handleOpenEdit = (room: RoomItem) => {
+  const handleEditOpen = (room: RoomItem) => {
     setEditRoom(room);
-    setEditError(null);
     setEditForm({
       roomNumber: room.roomNumber,
       floor: room.floor,
@@ -292,50 +321,38 @@ export const RoomsPage: React.FC = () => {
       monthlyRent: room.monthlyRent,
       status: room.status === 'MAINTENANCE' ? 'MAINTENANCE' : 'AVAILABLE',
     });
+    setEditError(null);
   };
 
-  const handleUpdateRoom = (e: React.FormEvent) => {
+  const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editRoom) return;
     setEditError(null);
     updateRoomMutation.mutate({ id: editRoom.id, payload: editForm });
   };
 
-  const handleTypeChange = (type: 'SINGLE' | 'DOUBLE' | 'QUAD') => {
-    const cap = type === 'SINGLE' ? 1 : type === 'DOUBLE' ? 2 : 4;
-    const defaultRent = type === 'SINGLE' ? 8000 : type === 'DOUBLE' ? 4500 : 3000;
-    setNewRoom({
-      ...newRoom,
-      roomType: type,
-      capacity: cap,
-      monthlyRent: defaultRent,
-    });
+  const handleDeleteOpen = (room: RoomItem) => {
+    setDeleteTarget(room);
+    setDeleteError(null);
   };
 
-  // Client-side search and filtering
-  const filteredRooms = rooms.filter((r) => {
-    const term = searchTerm.toLowerCase().trim();
-    const matchesSearch =
-      !term ||
-      r.roomNumber.toLowerCase().includes(term) ||
-      r.beds.some(
-        (b) =>
-          b.occupant &&
-          (b.occupant.studentName.toLowerCase().includes(term) ||
-            b.occupant.studentCode.toLowerCase().includes(term) ||
-            b.occupant.rollNumber.toLowerCase().includes(term) ||
-            b.occupant.department.toLowerCase().includes(term))
-      );
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) return;
+    deleteRoomMutation.mutate(deleteTarget.id);
+  };
 
-    const matchesStatus =
-      statusFilter === 'ALL' ||
-      (statusFilter === 'AVAILABLE' && (r.status === 'AVAILABLE' || r.status === 'PARTIALLY_OCCUPIED')) ||
-      r.status === statusFilter;
+  const handleToggleBedMaintenance = (bed: BedItem) => {
+    if (bed.status === 'OCCUPIED') return;
+    const nextStatus = bed.status === 'MAINTENANCE' ? 'AVAILABLE' : 'MAINTENANCE';
+    toggleBedMutation.mutate({ bedId: bed.id, status: nextStatus });
+  };
 
-    const matchesType = typeFilter === 'ALL' || r.roomType === typeFilter;
-
-    return matchesSearch && matchesStatus && matchesType;
-  });
+  const handleAddBedSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addBedTarget || !newBedCode.trim()) return;
+    setBedError(null);
+    addBedMutation.mutate({ roomId: addBedTarget.id, bedCode: newBedCode.trim().toUpperCase() });
+  };
 
   return (
     <div className="space-y-6">
@@ -343,135 +360,148 @@ export const RoomsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-            <BedDouble className="w-6 h-6 text-emerald-600" />
+            <DoorOpen className="w-6 h-6 text-emerald-600" />
             <span>{t('admin.rooms.title')}</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
             {t('admin.rooms.subtitle')}
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setAddError(null);
-            setAddModalOpen(true);
-          }}
-          className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{t('admin.rooms.btn_add_room')}</span>
-        </Button>
-      </div>
-
-      {/* Inventory Capacity Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase block">{t('admin.rooms.stat_total_rooms')}</span>
-          <div className="text-xl sm:text-2xl font-black text-slate-900">
-            {isEn ? `${meta?.totalRooms ?? rooms.length}` : `${meta?.totalRooms ?? rooms.length} টি`}
-          </div>
-          <span className="text-[10px] text-slate-400">{t('admin.rooms.stat_total_rooms')}</span>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase block">{t('admin.rooms.stat_total_beds')}</span>
-          <div className="text-xl sm:text-2xl font-black text-blue-600">
-            {isEn ? `${meta?.totalBeds ?? 0}` : `${meta?.totalBeds ?? 0} টি`}
-          </div>
-          <span className="text-[10px] text-slate-400">{t('admin.rooms.capacity')}</span>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase block">{t('admin.rooms.stat_occupied')}</span>
-          <div className="text-xl sm:text-2xl font-black text-purple-600">
-            {isEn ? `${meta?.occupiedBeds ?? 0}` : `${meta?.occupiedBeds ?? 0} টি`}
-          </div>
-          <span className="text-[10px] text-slate-400">{t('admin.dashboard.stat_occupancy')}</span>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase block">{t('admin.rooms.stat_available')}</span>
-          <div className="text-xl sm:text-2xl font-black text-emerald-600">
-            {isEn ? `${meta?.availableBeds ?? 0}` : `${meta?.availableBeds ?? 0} টি`}
-          </div>
-          <span className="text-[10px] text-emerald-700 font-medium">{t('status.available')}</span>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1 col-span-2 sm:col-span-1">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase block">{t('admin.rooms.stat_maintenance')}</span>
-          <div className="text-xl sm:text-2xl font-black text-slate-600">
-            {isEn ? `${meta?.unavailableBeds ?? 0}` : `${meta?.unavailableBeds ?? 0} টি`}
-          </div>
-          <span className="text-[10px] text-slate-400">{t('status.maintenance')}</span>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            className="gap-1.5 text-xs text-slate-700"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>{t('common.refresh')}</span>
+          </Button>
+          <Button
+            onClick={() => {
+              setAddError(null);
+              setAddModalOpen(true);
+            }}
+            className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t('admin.rooms.btn_add_room')}</span>
+          </Button>
         </div>
       </div>
 
-      {/* Filter and Search Controls */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+      {/* Inventory KPI Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+            {t('admin.rooms.stat_total_rooms')}
+          </span>
+          <div className="text-2xl font-black text-slate-900 mt-1">
+            {formatNumber(meta?.totalRooms ?? rooms.length)}{isEn ? '' : ' টি'}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+            {t('admin.rooms.stat_total_beds')}
+          </span>
+          <div className="text-2xl font-black text-blue-700 mt-1">
+            {formatNumber(meta?.totalBeds ?? 0)}{isEn ? '' : ' টি'}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+            {t('admin.rooms.stat_occupied')}
+          </span>
+          <div className="text-2xl font-black text-emerald-700 mt-1">
+            {formatNumber(meta?.occupiedBeds ?? 0)}{isEn ? '' : ' টি'}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+            {t('admin.rooms.stat_available')}
+          </span>
+          <div className="text-2xl font-black text-amber-600 mt-1">
+            {formatNumber(meta?.availableBeds ?? 0)}{isEn ? '' : ' টি'}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs col-span-2 sm:col-span-1">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+            {t('admin.rooms.stat_maintenance')}
+          </span>
+          <div className="text-2xl font-black text-rose-600 mt-1">
+            {formatNumber(meta?.unavailableBeds ?? 0)}{isEn ? '' : ' টি'}
+          </div>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         {/* Search Input */}
-        <div className="relative w-full md:w-80">
+        <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <Input
-            placeholder="রুম নং বা শিক্ষার্থীর নাম/আইডি দিয়ে খুঁজুন..."
+            placeholder={isEn ? 'Search room number or occupant...' : 'রুম নং বা শিক্ষার্থীর নাম/আইডি দিয়ে খুঁজুন...'}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 h-9 text-xs sm:text-sm"
           />
         </div>
 
-        {/* Filter Pills */}
+        {/* Filters */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Floor selector */}
-          <div className="flex items-center gap-1.5 mr-2">
-            <Building className="w-4 h-4 text-slate-400" />
-            <span className="text-xs text-slate-500 font-medium">{t('admin.rooms.floor')}:</span>
+          <div className="flex items-center gap-1.5 text-xs text-slate-600">
+            <Building className="w-3.5 h-3.5 text-slate-400" />
             <select
               value={floorFilter}
               onChange={(e) => setFloorFilter(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
-              className="h-8 text-xs rounded-lg border border-slate-200 bg-white px-2 focus:ring-1 focus:ring-emerald-500"
+              className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-xs focus:outline-hidden"
             >
-              <option value="ALL">সকল ফ্লোর</option>
-              {[1, 2, 3, 4, 5].map((fl) => (
-                <option key={fl} value={fl}>ফ্লোর {fl}</option>
+              <option value="ALL">{isEn ? 'All Floors' : 'সকল ফ্লোর'}</option>
+              {availableFloors.map((fl) => (
+                <option key={fl} value={fl}>{isEn ? `Floor ${fl}` : `ফ্লোর ${fl}`}</option>
               ))}
             </select>
           </div>
 
-          {/* Status selector */}
-          <div className="flex items-center gap-1.5 mr-2">
-            <Filter className="w-4 h-4 text-slate-400" />
-            <span className="text-xs text-slate-500 font-medium">স্ট্যাটাস:</span>
+          {/* Status filter */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-600">
+            <Filter className="w-3.5 h-3.5 text-slate-400" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-8 text-xs rounded-lg border border-slate-200 bg-white px-2 focus:ring-1 focus:ring-emerald-500"
+              className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-xs focus:outline-hidden"
             >
-              <option value="ALL">সকল স্ট্যাটাস</option>
-              <option value="AVAILABLE">ফাঁকা সিট রয়েছে</option>
-              <option value="FULL">পূর্ণ (Full)</option>
-              <option value="MAINTENANCE">রক্ষণাবেক্ষণ (Maintenance)</option>
+              <option value="ALL">{isEn ? 'All Statuses' : 'সকল স্ট্যাটাস'}</option>
+              <option value="AVAILABLE">{t('admin.rooms.filter_available')}</option>
+              <option value="FULL">{t('admin.rooms.filter_full')}</option>
+              <option value="MAINTENANCE">{t('admin.rooms.filter_maintenance')}</option>
             </select>
           </div>
 
-          {/* Room Type selector */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-slate-500 font-medium">ধরন:</span>
+          {/* Type filter */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-600">
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="h-8 text-xs rounded-lg border border-slate-200 bg-white px-2 focus:ring-1 focus:ring-emerald-500"
+              className="h-9 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-xs focus:outline-hidden"
             >
-              <option value="ALL">সকল ধরন</option>
-              <option value="SINGLE">সিঙ্গেল (SINGLE)</option>
-              <option value="DOUBLE">ডাবল (DOUBLE)</option>
-              <option value="QUAD">কোয়াড (QUAD)</option>
+              <option value="ALL">{isEn ? 'All Types' : 'সকল ধরন'}</option>
+              <option value="SINGLE">{t('admin.rooms.type_single')}</option>
+              <option value="DOUBLE">{t('admin.rooms.type_double')}</option>
+              <option value="QUAD">{t('admin.rooms.type_quad')}</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Main Rooms Grid */}
+      {/* Main Room Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <Skeleton key={i} className="h-64 rounded-2xl w-full" />
           ))}
@@ -479,219 +509,218 @@ export const RoomsPage: React.FC = () => {
       ) : isError ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
-          <h3 className="text-lg font-bold text-slate-800">রুম তালিকা লোড করা যায়নি</h3>
+          <h3 className="text-lg font-bold text-slate-800">{isEn ? 'Failed to load rooms list' : 'রুম তালিকা লোড করা যায়নি'}</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            {(error as any)?.message || 'সার্ভার থেকে রুমের তথ্য পাওয়া যায়নি।'}
+            {(error as any)?.message || t('common.error_occurred')}
           </p>
           <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
             <RefreshCw className="w-4 h-4" />
-            <span>পুনরায় লোড করুন</span>
+            <span>{t('common.retry')}</span>
           </Button>
         </div>
       ) : filteredRooms.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
           <DoorOpen className="w-12 h-12 text-slate-300 mx-auto" />
-          <h4 className="text-base font-bold text-slate-800">কোনো রুম পাওয়া যায়নি</h4>
+          <h4 className="text-base font-bold text-slate-800">{t('admin.rooms.empty_rooms')}</h4>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            প্রদত্ত ফিল্টারে কোনো রুম খুঁজে পাওয়া যায়নি। ফিল্টার রিসেট করুন বা নতুন রুম তৈরি করুন।
+            {isEn ? 'No rooms match the selected filters. Reset filters or create a new room.' : 'প্রদত্ত ফিল্টারে কোনো রুম খুঁজে পাওয়া যায়নি। ফিল্টার রিসেট করুন বা নতুন রুম তৈরি করুন।'}
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredRooms.map((room) => {
-            const occupancyPct = room.capacity > 0 ? (room.occupiedBedsCount / room.capacity) * 100 : 0;
-            const isFull = room.status === 'FULL' || room.availableBedsCount === 0;
-            const isMaintenance = room.status === 'MAINTENANCE';
+            const isFull = room.availableBedsCount === 0;
+            const isMaint = room.status === 'MAINTENANCE';
 
             return (
               <div
                 key={room.id}
-                className={`bg-white rounded-2xl border transition-all p-5 shadow-xs flex flex-col justify-between space-y-4 ${
-                  isMaintenance
-                    ? 'border-slate-300 bg-slate-50/50'
+                className={`bg-white rounded-2xl border p-5 shadow-xs transition-all flex flex-col justify-between space-y-4 ${
+                  isMaint
+                    ? 'border-rose-200 bg-rose-50/20'
                     : isFull
-                    ? 'border-rose-200 bg-rose-50/10'
-                    : room.status === 'PARTIALLY_OCCUPIED'
-                    ? 'border-amber-200'
-                    : 'border-slate-200 hover:border-emerald-300'
+                    ? 'border-slate-200'
+                    : 'border-emerald-200 hover:border-emerald-300'
                 }`}
               >
-                {/* Room Header & Controls */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl font-black text-slate-900">রুম {room.roomNumber}</span>
-                      <span className="text-xs font-mono font-medium text-slate-400">ফ্লোর {room.floor}</span>
+                {/* Room Header */}
+                <div>
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl font-black text-slate-900">
+                          {t('student.room.room_number', { number: room.roomNumber })}
+                        </span>
+                        <span className="text-xs font-mono font-medium text-slate-400">
+                          {t('student.room.floor')}: {room.floor}
+                        </span>
+                      </div>
+                      <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                        {room.roomType} ({room.capacity} {isEn ? 'Seats' : 'সিট'})
+                      </span>
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="text-right">
+                      <span className="text-sm font-extrabold text-emerald-700 block">
+                        {formatCurrency(room.monthlyRent)} {isEn ? '/mo' : '/মাস'}
+                      </span>
                       <StatusBadge status={room.status} />
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
-                    <span className="font-medium">
-                      ধরন: {room.roomType} ({room.capacity} সিট)
-                    </span>
-                    <span className="font-extrabold text-emerald-700">
-                      ৳ {room.monthlyRent.toLocaleString()} /মাস
-                    </span>
-                  </div>
-
-                  {/* Occupancy Mini Bar */}
-                  <div className="space-y-1 pt-1">
-                    <div className="flex justify-between text-[11px] text-slate-500">
-                      <span>সিট পূর্ণতা:</span>
-                      <span className="font-bold text-slate-700">
-                        {room.occupiedBedsCount} / {room.capacity} সিট বরাদ্দ
+                  {/* Capacity Bar */}
+                  <div className="mt-3 space-y-1">
+                    <div className="flex justify-between text-[11px] text-slate-500 font-medium">
+                      <span>{isEn ? 'Occupancy:' : 'সিট পূর্ণতা:'}</span>
+                      <span className="font-bold text-slate-800">
+                        {room.occupiedBedsCount} / {room.capacity} {isEn ? 'Seats' : 'সিট বরাদ্দ'}
                       </span>
                     </div>
-                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          isMaintenance
-                            ? 'bg-slate-400'
-                            : isFull
+                        className={`h-full rounded-full transition-all ${
+                          isMaint
                             ? 'bg-rose-500'
-                            : room.occupiedBedsCount > 0
+                            : room.occupiedBedsCount === room.capacity
                             ? 'bg-amber-500'
                             : 'bg-emerald-500'
                         }`}
-                        style={{ width: `${Math.min(100, occupancyPct)}%` }}
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.round((room.occupiedBedsCount / (room.capacity || 1)) * 100)
+                          )}%`,
+                        }}
                       />
+                    </div>
+                  </div>
+
+                  {/* Bed Slots Grid */}
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                      <span>{isEn ? 'Beds & Status:' : 'বেড বরাদ্দ ও অবস্থা:'}</span>
+                      {room.beds.length < room.capacity && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddBedTarget(room);
+                            setNewBedCode(String.fromCharCode(65 + room.beds.length));
+                            setBedError(null);
+                          }}
+                          className="text-[11px] text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5 font-semibold"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>{isEn ? 'Add Bed' : 'বেড যোগ'}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {room.beds.map((bed) => {
+                        const isBedOccupied = bed.status === 'OCCUPIED';
+                        const isBedMaintenance = bed.status === 'MAINTENANCE';
+
+                        return (
+                          <div
+                            key={bed.id}
+                            className={`p-2.5 rounded-xl border text-xs flex items-center justify-between transition-all ${
+                              isBedOccupied
+                                ? 'bg-slate-50 border-slate-200'
+                                : isBedMaintenance
+                                ? 'bg-rose-50/60 border-rose-200 text-rose-800'
+                                : 'bg-emerald-50/40 border-emerald-200 text-emerald-900'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 overflow-hidden">
+                              <span
+                                className={`w-6 h-6 rounded-md font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
+                                  isBedOccupied
+                                    ? 'bg-slate-200 text-slate-800'
+                                    : isBedMaintenance
+                                    ? 'bg-rose-200 text-rose-900'
+                                    : 'bg-emerald-200 text-emerald-900'
+                                }`}
+                              >
+                                {bed.bedCode}
+                              </span>
+
+                              <div className="truncate">
+                                {isBedOccupied && bed.occupant ? (
+                                  <div>
+                                    <span className="font-bold text-slate-900 block truncate">
+                                      {bed.occupant.studentName}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500 font-mono block">
+                                      {bed.occupant.studentCode} • {bed.occupant.department}
+                                    </span>
+                                  </div>
+                                ) : isBedMaintenance ? (
+                                  <span className="text-slate-500 font-medium">
+                                    {isEn ? 'Under Maintenance' : 'রক্ষণাবেক্ষণাধীন (Maintenance)'}
+                                  </span>
+                                ) : (
+                                  <span className="text-emerald-700 font-medium">
+                                    {isEn ? 'Available Seat' : 'ফাঁকা সিট (Available)'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className="text-[10px] font-mono text-slate-400">
+                                {bed.identifier}
+                              </span>
+
+                              {!isBedOccupied && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleBedMaintenance(bed)}
+                                  disabled={toggleBedMutation.isPending}
+                                  className={`p-1 rounded-md text-xs transition-colors ${
+                                    isBedMaintenance
+                                      ? 'text-rose-600 hover:bg-rose-100'
+                                      : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                                  }`}
+                                  title={isBedMaintenance ? (isEn ? 'Activate Bed' : 'বেড সচল করুন') : (isEn ? 'Set Bed Maintenance' : 'বেড রক্ষণাবেক্ষণ চিহ্নিত করুন')}
+                                >
+                                  <Wrench className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
 
-                {/* Beds Grid / List */}
-                <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      বেড বরাদ্দ ও অবস্থা:
-                    </span>
-                    {room.beds.length < room.capacity && (
-                      <button
-                        onClick={() => {
-                          setAddBedTarget(room);
-                          const nextCode = String.fromCharCode(65 + room.beds.length);
-                          setNewBedCode(nextCode);
-                          setBedError(null);
-                        }}
-                        className="text-[10px] font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-0.5"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>বেড যোগ</span>
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="space-y-1.5">
-                    {room.beds.map((bed) => {
-                      const isBedOccupied = bed.status === 'OCCUPIED' || !!bed.occupant;
-                      const isBedMaintenance = bed.status === 'MAINTENANCE';
-
-                      return (
-                        <div
-                          key={bed.id}
-                          className={`p-2.5 rounded-xl border flex items-center justify-between text-xs transition-colors ${
-                            isBedOccupied
-                              ? 'bg-slate-50/80 border-slate-200'
-                              : isBedMaintenance
-                              ? 'bg-slate-100/70 border-slate-200'
-                              : 'bg-emerald-50/40 border-emerald-200/80'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`w-6 h-6 rounded-md font-bold text-[11px] flex items-center justify-center ${
-                                isBedOccupied
-                                  ? 'bg-slate-200 text-slate-700'
-                                  : isBedMaintenance
-                                  ? 'bg-slate-300 text-slate-700'
-                                  : 'bg-emerald-600 text-white'
-                              }`}
-                            >
-                              {bed.bedCode}
-                            </div>
-                            <div>
-                              {bed.occupant ? (
-                                <div>
-                                  <span className="font-bold text-slate-900 block leading-tight">
-                                    {bed.occupant.studentName}
-                                  </span>
-                                  <span className="text-[10px] text-slate-400 font-mono">
-                                    {bed.occupant.studentCode} • {bed.occupant.department}
-                                  </span>
-                                </div>
-                              ) : isBedMaintenance ? (
-                                <span className="text-slate-500 font-medium">রক্ষণাবেক্ষণাধীন (Maintenance)</span>
-                              ) : (
-                                <span className="text-emerald-700 font-medium">ফাঁকা সিট (Available)</span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="text-right flex items-center gap-2">
-                            <div>
-                              <span className="text-[10px] font-mono text-slate-400 block">
-                                আইডি: {bed.identifier}
-                              </span>
-                              <StatusBadge status={bed.status} showDot={false} className="text-[10px] px-1.5 py-0" />
-                            </div>
-
-                            {/* Bed Maintenance Toggle Button (only when empty) */}
-                            {!isBedOccupied && (
-                              <button
-                                onClick={() =>
-                                  toggleBedStatusMutation.mutate({
-                                    roomId: room.id,
-                                    bedId: bed.id,
-                                    status: isBedMaintenance ? 'AVAILABLE' : 'MAINTENANCE',
-                                  })
-                                }
-                                title={isBedMaintenance ? 'বেড সচল করুন' : 'বেড রক্ষণাবেক্ষণ চিহ্নিত করুন'}
-                                className="p-1 text-slate-400 hover:text-emerald-600 rounded transition-colors"
-                              >
-                                <Wrench className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Card Action Controls (Edit, History, Delete) */}
+                {/* Card Action Footer */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={() => setHistoryRoom(room)}
-                    className="h-8 px-2.5 text-xs text-slate-700 gap-1.5 hover:text-emerald-700"
+                    className="h-8 text-xs text-slate-600 hover:text-slate-900 gap-1"
                   >
                     <History className="w-3.5 h-3.5" />
-                    <span>ইতিহাস</span>
+                    <span>{isEn ? 'History' : 'ইতিহাস'}</span>
                   </Button>
 
                   <div className="flex items-center gap-1.5">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleOpenEdit(room)}
-                      className="h-8 px-2.5 text-xs text-slate-700 gap-1 hover:text-emerald-700"
+                      onClick={() => handleEditOpen(room)}
+                      className="h-8 text-xs text-slate-700 hover:text-emerald-700 gap-1"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
-                      <span>সম্পাদনা</span>
+                      <span>{isEn ? 'Edit' : 'সম্পাদনা'}</span>
                     </Button>
 
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        setDeleteTarget(room);
-                        setDeleteError(null);
-                      }}
-                      className="h-8 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
+                      onClick={() => handleDeleteOpen(room)}
+                      className="h-8 w-8 p-0 text-rose-500 hover:text-rose-700 hover:bg-rose-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
@@ -703,16 +732,16 @@ export const RoomsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Add Room Modal Dialog */}
+      {/* Add New Room Dialog */}
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
-              <Plus className="w-5 h-5 text-emerald-600" />
-              <span>নতুন রুম নিবন্ধন (Add New Room)</span>
+              <DoorOpen className="w-5 h-5 text-emerald-600" />
+              <span>{t('admin.rooms.dialog_add_title')}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              রুম নম্বর, ফ্লোর এবং ধারণক্ষমতা অনুযায়ী স্বয়ংক্রিয়ভাবে বেড তৈরি করা হবে।
+              {t('admin.rooms.dialog_add_desc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -723,31 +752,31 @@ export const RoomsPage: React.FC = () => {
             </Alert>
           )}
 
-          <form onSubmit={handleAddRoom} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <form onSubmit={handleAddSubmit} className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label htmlFor="room-num" className="text-xs">
-                  রুম নম্বর *
+                <Label htmlFor="roomNumber" className="text-xs font-semibold">
+                  {t('admin.rooms.room_number')} *
                 </Label>
                 <Input
-                  id="room-num"
+                  id="roomNumber"
                   required
-                  placeholder="e.g. 101 বা ২০২"
+                  placeholder={isEn ? 'e.g. 101 or 202' : 'e.g. 101 বা ২০২'}
                   value={newRoom.roomNumber}
                   onChange={(e) => setNewRoom({ ...newRoom, roomNumber: e.target.value })}
-                  className="h-9 text-xs font-mono font-bold"
+                  className="h-9 text-xs"
                 />
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="floor-num" className="text-xs">
-                  ফ্লোর নম্বর *
+                <Label htmlFor="floor" className="text-xs font-semibold">
+                  {t('admin.rooms.floor')} *
                 </Label>
                 <Input
-                  id="floor-num"
+                  id="floor"
                   type="number"
-                  min={1}
-                  max={20}
+                  min="0"
+                  max="20"
                   required
                   value={newRoom.floor}
                   onChange={(e) => setNewRoom({ ...newRoom, floor: Number(e.target.value) })}
@@ -757,71 +786,80 @@ export const RoomsPage: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">রুমের ধরন ও ধারণক্ষমতা *</Label>
+              <Label className="text-xs font-semibold">{isEn ? 'Room Type & Capacity *' : 'রুমের ধরন ও ধারণক্ষমতা *'}</Label>
               <div className="grid grid-cols-3 gap-2">
                 {(['SINGLE', 'DOUBLE', 'QUAD'] as const).map((type) => (
-                  <Button
+                  <button
                     key={type}
                     type="button"
-                    size="sm"
-                    variant={newRoom.roomType === type ? 'default' : 'outline'}
-                    onClick={() => handleTypeChange(type)}
-                    className="text-xs h-9 flex flex-col items-center justify-center py-1"
+                    onClick={() =>
+                      setNewRoom({
+                        ...newRoom,
+                        roomType: type,
+                        capacity: type === 'SINGLE' ? 1 : type === 'DOUBLE' ? 2 : 4,
+                      })
+                    }
+                    className={`p-2.5 rounded-xl border text-center transition-all ${
+                      newRoom.roomType === type
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-900 font-bold'
+                        : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
                   >
-                    <span className="font-bold">{type}</span>
-                    <span className="text-[10px] opacity-80">
-                      {type === 'SINGLE' ? '১ সিট' : type === 'DOUBLE' ? '২ সিট' : '৪ সিট'}
-                    </span>
-                  </Button>
+                    <div className="text-xs font-mono font-bold">{type}</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      {type === 'SINGLE' ? (isEn ? '1 Seat' : '১ সিট') : type === 'DOUBLE' ? (isEn ? '2 Seats' : '২ সিট') : (isEn ? '4 Seats' : '৪ সিট')}
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="monthly-rent" className="text-xs">
-                মাসিক সিট ভাড়া (টাকা) *
+              <Label htmlFor="rent" className="text-xs font-semibold">
+                {t('admin.rooms.rent')} *
               </Label>
               <Input
-                id="monthly-rent"
+                id="rent"
                 type="number"
-                min={500}
+                min="0"
+                step="100"
                 required
                 value={newRoom.monthlyRent}
                 onChange={(e) => setNewRoom({ ...newRoom, monthlyRent: Number(e.target.value) })}
-                className="h-9 text-xs font-mono font-semibold"
+                className="h-9 text-xs font-mono"
               />
             </div>
 
-            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200/80 text-xs text-emerald-900 space-y-1">
-              <div className="font-bold">স্বয়ংক্রিয় বেড জেনারেশন:</div>
-              <p className="text-[11px] text-emerald-800">
-                এই রুমে {newRoom.capacity}টি বেড তৈরি হবে: {Array.from({ length: newRoom.capacity }, (_, i) => `বেড ${String.fromCharCode(65 + i)}`).join(', ')}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-[11px] text-slate-600 space-y-1">
+              <div className="font-bold">{isEn ? 'Automatic Bed Generation:' : 'স্বয়ংক্রিয় বেড জেনারেশন:'}</div>
+              <p>
+                {isEn ? `This room will have ${newRoom.capacity} beds generated: ` : `এই রুমে ${newRoom.capacity}টি বেড তৈরি হবে: `}
+                {Array.from({ length: newRoom.capacity }, (_, i) => `${isEn ? 'Bed' : 'বেড'} ${String.fromCharCode(65 + i)}`).join(', ')}
               </p>
             </div>
 
-            <DialogFooter className="gap-2 pt-2 flex flex-col-reverse sm:flex-row">
+            <DialogFooter className="gap-2 pt-2 flex-col sm:flex-row">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="w-full sm:w-auto"
                 onClick={() => setAddModalOpen(false)}
               >
-                বাতিল
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
                 size="sm"
                 disabled={addRoomMutation.isPending}
-                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {addRoomMutation.isPending ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                    <span>তৈরি হচ্ছে...</span>
+                    <span>{t('common.loading')}</span>
                   </>
                 ) : (
-                  <span>রুম সংরক্ষণ করুন</span>
+                  <span>{t('common.save')}</span>
                 )}
               </Button>
             </DialogFooter>
@@ -829,17 +867,17 @@ export const RoomsPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Room Modal Dialog */}
+      {/* Edit Room Dialog */}
       {editRoom && (
         <Dialog open={!!editRoom} onOpenChange={(open) => !open && setEditRoom(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="text-base font-bold flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-emerald-600" />
-                <span>রুম তথ্য সম্পাদন (Edit Room {editRoom.roomNumber})</span>
+                <span>{isEn ? `Edit Room ${editRoom.roomNumber}` : `রুম তথ্য সম্পাদন (রুম ${editRoom.roomNumber})`}</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                রুম নম্বর, ভাড়া, ক্যাপাসিটি এবং রক্ষণাবেক্ষণ স্ট্যাটাস আপডেট করুন।
+                {isEn ? 'Update room number, rent, capacity, and maintenance status.' : 'রুম নম্বর, ভাড়া, ক্যাপাসিটি এবং রক্ষণাবেক্ষণ স্ট্যাটাস আপডেট করুন।'}
               </DialogDescription>
             </DialogHeader>
 
@@ -850,30 +888,30 @@ export const RoomsPage: React.FC = () => {
               </Alert>
             )}
 
-            <form onSubmit={handleUpdateRoom} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="edit-room-num" className="text-xs">
-                    রুম নম্বর *
+                  <Label htmlFor="editRoomNumber" className="text-xs">
+                    {t('admin.rooms.room_number')} *
                   </Label>
                   <Input
-                    id="edit-room-num"
+                    id="editRoomNumber"
                     required
                     value={editForm.roomNumber}
                     onChange={(e) => setEditForm({ ...editForm, roomNumber: e.target.value })}
-                    className="h-9 text-xs font-mono font-bold"
+                    className="h-9 text-xs"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="edit-floor-num" className="text-xs">
-                    ফ্লোর নম্বর *
+                  <Label htmlFor="editFloor" className="text-xs">
+                    {t('admin.rooms.floor')} *
                   </Label>
                   <Input
-                    id="edit-floor-num"
+                    id="editFloor"
                     type="number"
-                    min={1}
-                    max={20}
+                    min="0"
+                    max="20"
                     required
                     value={editForm.floor}
                     onChange={(e) => setEditForm({ ...editForm, floor: Number(e.target.value) })}
@@ -882,80 +920,80 @@ export const RoomsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="edit-capacity" className="text-xs">
-                    ধারণক্ষমতা (সিট সংখ্যা) *
-                  </Label>
-                  <Input
-                    id="edit-capacity"
-                    type="number"
-                    min={Math.max(1, editRoom.occupiedBedsCount)}
-                    max={10}
-                    required
-                    value={editForm.capacity}
-                    onChange={(e) => setEditForm({ ...editForm, capacity: Number(e.target.value) })}
-                    className="h-9 text-xs font-bold"
-                  />
-                  <span className="text-[10px] text-slate-400 block">
-                    বর্তমান দখল: {editRoom.occupiedBedsCount} টি (সর্বনিম্ন {editRoom.occupiedBedsCount} হতে হবে)
-                  </span>
-                </div>
+              <div className="space-y-1">
+                <Label htmlFor="editCapacity" className="text-xs">
+                  {t('admin.rooms.capacity')} *
+                </Label>
+                <Input
+                  id="editCapacity"
+                  type="number"
+                  min={Math.max(1, editRoom.occupiedBedsCount)}
+                  max="8"
+                  required
+                  value={editForm.capacity}
+                  onChange={(e) => setEditForm({ ...editForm, capacity: Number(e.target.value) })}
+                  className="h-9 text-xs"
+                />
+                <p className="text-[10px] text-slate-400">
+                  {isEn
+                    ? `Current occupancy: ${editRoom.occupiedBedsCount} (minimum ${editRoom.occupiedBedsCount})`
+                    : `বর্তমান দখল: ${editRoom.occupiedBedsCount} টি (সর্বনিম্ন ${editRoom.occupiedBedsCount} হতে হবে)`}
+                </p>
+              </div>
 
-                <div className="space-y-1">
-                  <Label htmlFor="edit-rent" className="text-xs">
-                    মাসিক সিট ভাড়া (টাকা) *
-                  </Label>
-                  <Input
-                    id="edit-rent"
-                    type="number"
-                    min={500}
-                    required
-                    value={editForm.monthlyRent}
-                    onChange={(e) => setEditForm({ ...editForm, monthlyRent: Number(e.target.value) })}
-                    className="h-9 text-xs font-mono font-semibold"
-                  />
-                </div>
+              <div className="space-y-1">
+                <Label htmlFor="editRent" className="text-xs">
+                  {t('admin.rooms.rent')} *
+                </Label>
+                <Input
+                  id="editRent"
+                  type="number"
+                  min="0"
+                  step="100"
+                  required
+                  value={editForm.monthlyRent}
+                  onChange={(e) => setEditForm({ ...editForm, monthlyRent: Number(e.target.value) })}
+                  className="h-9 text-xs font-mono"
+                />
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">রক্ষণাবেক্ষণ স্ট্যাটাস (Maintenance)</Label>
+                <Label className="text-xs">{t('admin.rooms.stat_maintenance')}</Label>
                 <select
                   value={editForm.status}
                   onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-ring"
+                  className="w-full h-9 rounded-md border border-slate-200 bg-white px-2.5 text-xs"
                 >
-                  <option value="AVAILABLE">সচল / স্বাভাবিক (Available for allocation)</option>
-                  <option value="MAINTENANCE">রক্ষণাবেক্ষণাধীন (Maintenance - নো নতুন বরাদ্দ)</option>
+                  <option value="AVAILABLE">{isEn ? 'Active / Available for allocation' : 'সচল / স্বাভাবিক (Available for allocation)'}</option>
+                  <option value="MAINTENANCE">{isEn ? 'Under Maintenance (No new allocations)' : 'রক্ষণাবেক্ষণাধীন (Maintenance - নো নতুন বরাদ্দ)'}</option>
                 </select>
-                <span className="text-[10px] text-slate-400">
-                  রক্ষণাবেক্ষণ নির্বাচন করলে এই রুমে কোনো নতুন শিক্ষার্থী বরাদ্দ দেওয়া যাবে না।
-                </span>
+                <p className="text-[10px] text-slate-400">
+                  {isEn ? 'Setting maintenance prevents new allocations in this room.' : 'রক্ষণাবেক্ষণ নির্বাচন করলে এই রুমে কোনো নতুন শিক্ষার্থী বরাদ্দ দেওয়া যাবে না।'}
+                </p>
               </div>
 
-              <DialogFooter className="gap-2 pt-2 flex flex-col-reverse sm:flex-row">
+              <DialogFooter className="gap-2 pt-2 flex-col sm:flex-row">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="w-full sm:w-auto"
                   onClick={() => setEditRoom(null)}
                 >
-                  বাতিল
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   type="submit"
                   size="sm"
                   disabled={updateRoomMutation.isPending}
-                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   {updateRoomMutation.isPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                      <span>সংরক্ষণ হচ্ছে...</span>
+                      <span>{t('common.loading')}</span>
                     </>
                   ) : (
-                    <span>পরিবর্তন সংরক্ষণ করুন</span>
+                    <span>{t('common.save')}</span>
                   )}
                 </Button>
               </DialogFooter>
@@ -964,65 +1002,57 @@ export const RoomsPage: React.FC = () => {
         </Dialog>
       )}
 
-      {/* Delete Room Confirmation Modal Dialog */}
+      {/* Delete Room Confirmation Dialog */}
       {deleteTarget && (
-        <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <div className="flex items-center gap-2 text-rose-600 mb-1">
-                <ShieldAlert className="w-5 h-5" />
-                <DialogTitle className="text-base font-bold text-rose-700">রুম মুছে ফেলার নিশ্চিতকরণ</DialogTitle>
-              </div>
+              <DialogTitle className="text-base font-bold text-rose-700">
+                {isEn ? 'Confirm Room Deletion' : 'রুম মুছে ফেলার নিশ্চিতকরণ'}
+              </DialogTitle>
               <DialogDescription className="text-xs text-slate-600">
-                আপনি কি নিশ্চিতভাবে <strong>রুম {deleteTarget.roomNumber}</strong> স্থায়ীভাবে মুছে ফেলতে চান?
+                {isEn
+                  ? `Are you sure you want to permanently delete Room ${deleteTarget.roomNumber}?`
+                  : `আপনি কি নিশ্চিতভাবে রুম ${deleteTarget.roomNumber} স্থায়ীভাবে মুছে ফেলতে চান?`}
               </DialogDescription>
             </DialogHeader>
 
-            {deleteError && (
-              <Alert variant="destructive" className="bg-rose-50 border-rose-200 text-rose-900 text-xs my-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <div>
-                  <AlertTitle className="font-bold">মুছে ফেলা সম্ভব নয়</AlertTitle>
-                  <AlertDescription className="text-[11px] leading-relaxed mt-1">
-                    {deleteError}
-                  </AlertDescription>
-                </div>
+            {deleteTarget.occupiedBedsCount > 0 && (
+              <Alert variant="destructive" className="bg-rose-50 border-rose-200 text-rose-800 text-xs">
+                <ShieldAlert className="w-4 h-4 text-rose-600" />
+                <AlertTitle className="font-bold">{isEn ? 'Cannot Delete Room' : 'মুছে ফেলা সম্ভব নয়'}</AlertTitle>
+                <AlertDescription>
+                  {isEn
+                    ? `This room has ${deleteTarget.occupiedBedsCount} active allocations. Vacate all beds first.`
+                    : `এই রুমে ${deleteTarget.occupiedBedsCount} সিট বরাদ্দ রয়েছে। প্রথমে সিট খালি করুন।`}
+                </AlertDescription>
               </Alert>
             )}
 
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 space-y-2">
-              <div className="flex justify-between">
-                <span>রুমের বর্তমান অবস্থান:</span>
-                <span className="font-bold text-slate-900">{deleteTarget.occupiedBedsCount} সিট বরাদ্দকৃত</span>
-              </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                * কোনো শিক্ষার্থী সক্রিয় বরাদ্দ থাকলে রুম মুছে ফেলা যাবে না। এছাড়া অতীত বরাদ্দের অডিট ট্রেইল থাকলে রুমটি ডিলিট করার পরিবর্তে <strong>সম্পাদনা</strong> মেন্যু থেকে <strong>'রক্ষণাবেক্ষণ (MAINTENANCE)'</strong> স্ট্যাটাস নির্ধারণ করুন।
-              </p>
-            </div>
+            {deleteError && (
+              <Alert variant="destructive" className="bg-rose-50 border-rose-200 text-rose-800 text-xs">
+                <AlertCircle className="w-4 h-4 text-rose-600" />
+                <AlertDescription>{deleteError}</AlertDescription>
+              </Alert>
+            )}
 
-            <DialogFooter className="gap-2 pt-2 flex flex-col-reverse sm:flex-row">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto"
-                onClick={() => setDeleteTarget(null)}
-              >
-                বাতিল
+            <DialogFooter className="gap-2 pt-2 flex-col sm:flex-row">
+              <Button variant="outline" size="sm" onClick={() => setDeleteTarget(null)}>
+                {t('common.cancel')}
               </Button>
               <Button
-                variant="destructive"
                 size="sm"
-                disabled={deleteRoomMutation.isPending}
-                className="w-full sm:w-auto"
-                onClick={() => deleteRoomMutation.mutate(deleteTarget.id)}
+                variant="destructive"
+                disabled={deleteTarget.occupiedBedsCount > 0 || deleteRoomMutation.isPending}
+                onClick={handleDeleteConfirm}
               >
                 {deleteRoomMutation.isPending ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                    <span>মুছে ফেলা হচ্ছে...</span>
+                    <span>{t('common.loading')}</span>
                   </>
                 ) : (
-                  <span>স্থায়ীভাবে মুছুন</span>
+                  <span>{t('common.delete', 'Delete Permanently')}</span>
                 )}
               </Button>
             </DialogFooter>
@@ -1030,76 +1060,61 @@ export const RoomsPage: React.FC = () => {
         </Dialog>
       )}
 
-      {/* Room Allocation History Modal Dialog */}
+      {/* Allocation History Modal Dialog */}
       {historyRoom && (
-        <Dialog open={!!historyRoom} onOpenChange={(open) => !open && setHistoryRoom(null)}>
-          <DialogContent className="max-w-2xl">
+        <Dialog open={!!historyRoom} onOpenChange={() => setHistoryRoom(null)}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <History className="w-5 h-5 text-emerald-600" />
-                  <DialogTitle className="text-lg font-bold">
-                    রুম {historyRoom.roomNumber} — বরাদ্দ ও অডিট ইতিহাস
-                  </DialogTitle>
-                </div>
-                <StatusBadge status={historyRoom.status} />
-              </div>
+              <DialogTitle className="text-base font-bold flex items-center gap-2">
+                <History className="w-5 h-5 text-emerald-600" />
+                <span>
+                  {t('student.room.room_number', { number: historyRoom.roomNumber })} — {isEn ? 'Allocation & Audit History' : 'বরাদ্দ ও অডিট ইতিহাস'}
+                </span>
+              </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                এই রুমের সকল সক্রিয় ও অতীত বরাদ্দের সম্পূর্ণ কালানুক্রমিক ইতিহাস
+                {isEn ? 'Complete chronological allocation history for this room' : 'এই রুমের সকল সক্রিয় ও অতীত বরাদ্দের সম্পূর্ণ কালানুক্রমিক ইতিহাস'}
               </DialogDescription>
             </DialogHeader>
 
             <div className="py-2">
               {isHistoryLoading ? (
-                <div className="space-y-2 py-4">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
+                <div className="p-8 text-center space-y-2">
+                  <Loader2 className="w-6 h-6 animate-spin text-emerald-600 mx-auto" />
+                  <p className="text-xs text-slate-400">{t('common.loading')}</p>
                 </div>
               ) : !historyResponse?.allocations || historyResponse.allocations.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 space-y-2">
-                  <Users className="w-10 h-10 text-slate-300 mx-auto" />
-                  <p className="text-xs">এই রুমে এখনো কোনো শিক্ষার্থী বরাদ্দের রেকর্ড নেই।</p>
+                <div className="p-8 text-center text-slate-400">
+                  <p className="text-xs">{isEn ? 'No student allocations recorded for this room yet.' : 'এই রুমে এখনো কোনো শিক্ষার্থী বরাদ্দের রেকর্ড নেই।'}</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <div className="overflow-x-auto border border-slate-200 rounded-xl">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-slate-50">
-                        <TableHead className="text-xs">বেড</TableHead>
-                        <TableHead className="text-xs">শিক্ষার্থীর নাম ও আইডি</TableHead>
-                        <TableHead className="text-xs">বিভাগ</TableHead>
-                        <TableHead className="text-xs">বরাদ্দ শুরুর তারিখ</TableHead>
-                        <TableHead className="text-xs">সমাপ্তি</TableHead>
-                        <TableHead className="text-xs">স্ট্যাটাস</TableHead>
-                        <TableHead className="text-xs">অনুমোদনকারী</TableHead>
+                      <TableRow className="bg-slate-50 text-xs">
+                        <TableHead className="text-xs">{t('student.room.bed')}</TableHead>
+                        <TableHead className="text-xs">{t('student.payments.student_lbl')}</TableHead>
+                        <TableHead className="text-xs">{t('student.profile.department')}</TableHead>
+                        <TableHead className="text-xs">{t('admin.allocations.start_date')}</TableHead>
+                        <TableHead className="text-xs">{t('admin.allocations.vacate_date')}</TableHead>
+                        <TableHead className="text-xs">{t('common.status')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {historyResponse.allocations.map((alloc) => (
                         <TableRow key={alloc.id} className="text-xs">
-                          <TableCell className="font-bold font-mono">
-                            বেড {alloc.bedCode}
-                          </TableCell>
+                          <TableCell className="font-mono font-bold">{alloc.bedCode}</TableCell>
                           <TableCell>
-                            <span className="font-bold text-slate-900 block">{alloc.studentName}</span>
+                            <span className="font-bold text-slate-800 block">{alloc.studentName}</span>
                             <span className="text-[10px] text-slate-400 font-mono">
-                              {alloc.studentCode} (রোল {alloc.rollNumber})
+                              {alloc.studentCode} ({t('student.profile.roll_number')}: {alloc.rollNumber})
                             </span>
                           </TableCell>
                           <TableCell>{alloc.department}</TableCell>
-                          <TableCell className="text-slate-600">
-                            {new Date(alloc.startDate).toLocaleDateString('bn-BD')}
-                          </TableCell>
-                          <TableCell className="text-slate-500">
-                            {alloc.endDate ? new Date(alloc.endDate).toLocaleDateString('bn-BD') : (
-                              <span className="text-emerald-700 font-semibold">চলমান (Active)</span>
-                            )}
-                          </TableCell>
+                          <TableCell>{formatDate(alloc.startDate)}</TableCell>
+                          <TableCell>{alloc.endDate ? formatDate(alloc.endDate) : (isEn ? 'Active' : 'চলমান')}</TableCell>
                           <TableCell>
-                            <StatusBadge status={alloc.status} className="text-[10px] px-2 py-0.5" />
+                            <StatusBadge status={alloc.status} />
                           </TableCell>
-                          <TableCell className="text-slate-600">{alloc.allocatedBy}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1108,76 +1123,63 @@ export const RoomsPage: React.FC = () => {
               )}
             </div>
 
-            <DialogFooter className="pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto"
-                onClick={() => setHistoryRoom(null)}
-              >
-                বন্ধ করুন
+            <DialogFooter>
+              <Button variant="outline" size="sm" onClick={() => setHistoryRoom(null)}>
+                {t('common.close')}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
 
-      {/* Add Bed Modal Dialog */}
+      {/* Add Bed Target Modal Dialog */}
       {addBedTarget && (
-        <Dialog open={!!addBedTarget} onOpenChange={(open) => !open && setAddBedTarget(null)}>
+        <Dialog open={!!addBedTarget} onOpenChange={() => setAddBedTarget(null)}>
           <DialogContent className="sm:max-w-xs">
             <DialogHeader>
               <DialogTitle className="text-sm font-bold flex items-center gap-1.5">
                 <Plus className="w-4 h-4 text-emerald-600" />
-                <span>নতুন বেড যোগ (রুম {addBedTarget.roomNumber})</span>
+                <span>{isEn ? `Add Bed to Room ${addBedTarget.roomNumber}` : `নতুন বেড যোগ (রুম ${addBedTarget.roomNumber})`}</span>
               </DialogTitle>
             </DialogHeader>
 
             {bedError && (
               <Alert variant="destructive" className="bg-rose-50 border-rose-200 text-rose-800 text-xs">
+                <AlertCircle className="w-4 h-4 text-rose-600" />
                 <AlertDescription>{bedError}</AlertDescription>
               </Alert>
             )}
 
-            <div className="space-y-3 py-2">
+            <form onSubmit={handleAddBedSubmit} className="space-y-3 py-1">
               <div className="space-y-1">
-                <Label htmlFor="bed-code" className="text-xs">
-                  বেড কোড (e.g. C, D) *
+                <Label htmlFor="bedCode" className="text-xs">
+                  {isEn ? 'Bed Code (e.g. C, D) *' : 'বেড কোড (e.g. C, D) *'}
                 </Label>
                 <Input
-                  id="bed-code"
+                  id="bedCode"
+                  required
+                  maxLength={4}
                   value={newBedCode}
                   onChange={(e) => setNewBedCode(e.target.value.toUpperCase())}
-                  placeholder="যেমন: C"
-                  className="h-9 text-xs font-mono font-bold uppercase"
+                  placeholder={isEn ? 'e.g. C' : 'যেমন: C'}
+                  className="h-9 text-xs font-mono font-bold"
                 />
               </div>
-            </div>
 
-            <DialogFooter className="gap-2 pt-2 flex flex-col-reverse sm:flex-row">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto"
-                onClick={() => setAddBedTarget(null)}
-              >
-                বাতিল
-              </Button>
-              <Button
-                size="sm"
-                disabled={addBedMutation.isPending || !newBedCode.trim()}
-                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
-                onClick={() =>
-                  addBedMutation.mutate({
-                    roomId: addBedTarget.id,
-                    bedCode: newBedCode.trim(),
-                  })
-                }
-              >
-                {addBedMutation.isPending ? 'যোগ হচ্ছে...' : 'বেড যুক্ত করুন'}
-              </Button>
-            </DialogFooter>
+              <DialogFooter className="gap-2 pt-1 flex-col sm:flex-row">
+                <Button variant="outline" size="sm" onClick={() => setAddBedTarget(null)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={addBedMutation.isPending}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {addBedMutation.isPending ? t('common.loading') : (isEn ? 'Add Bed' : 'বেড যুক্ত করুন')}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       )}

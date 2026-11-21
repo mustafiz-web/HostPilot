@@ -48,7 +48,7 @@ export const LoginPage: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-3">
         <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
-        <p className="text-sm font-medium text-slate-600">যাচাইকরণ চলছে (Checking session)...</p>
+        <p className="text-sm font-medium text-slate-600">{t('auth.verifying_server', 'Checking session...')}</p>
       </div>
     );
   }
@@ -66,7 +66,7 @@ export const LoginPage: React.FC = () => {
       navigate(destination, { replace: true });
     } catch (err: any) {
       setErrorMessage(
-        err.message || 'ইমেইল বা পাসওয়ার্ড সঠিক নয় (Invalid email or password)'
+        err.message || t('auth.invalid_credentials', 'Invalid email or password')
       );
     } finally {
       setIsLoading(false);

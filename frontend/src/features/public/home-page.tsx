@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/features/auth/auth-context';
+import { formatCurrency } from '@/lib/formatters';
 
 interface RealRoom {
   id: string;
@@ -113,27 +114,27 @@ export const HomePage: React.FC = () => {
       icon: Bed,
       title: t('features.room_title'),
       desc: t('features.room_desc'),
-      tag: 'স্বচ্ছ বণ্টন',
+      tag: isEn ? 'Fair Allocation' : 'স্বচ্ছ বণ্টন',
     },
     {
       icon: CreditCard,
       title: t('features.payment_title'),
       desc: t('features.payment_desc'),
-      tag: 'ডিজিটাল হিসাব',
+      tag: isEn ? 'Digital Ledger' : 'ডিজিটাল হিসাব',
     },
     {
       icon: MessageSquare,
       title: t('features.complaint_title'),
       desc: t('features.complaint_desc'),
-      tag: 'দ্রুত সমাধান',
+      tag: isEn ? 'Fast Resolution' : 'দ্রুত সমাধান',
     },
   ];
 
   const stats = [
-    { value: '১৫০+', labelEn: 'Total Beds', labelBn: 'মোট আসন সংখ্যা' },
-    { value: '৯৮%', labelEn: 'Student Satisfaction', labelBn: 'শিক্ষার্থী সন্তুষ্টি' },
-    { value: '২৪/৭', labelEn: 'Security & CCTV', labelBn: 'নিরাপত্তা ও সিসিটিভি' },
-    { value: '১০০%', labelEn: 'Digital Transparency', labelBn: 'ডিজিটাল স্বচ্ছতা' },
+    { value: isEn ? '150+' : '১৫০+', labelEn: 'Total Beds', labelBn: 'মোট আসন সংখ্যা' },
+    { value: isEn ? '98%' : '৯৮%', labelEn: 'Student Satisfaction', labelBn: 'শিক্ষার্থী সন্তুষ্টি' },
+    { value: isEn ? '24/7' : '২৪/৭', labelEn: 'Security & CCTV', labelBn: 'নিরাপত্তা ও সিসিটিভি' },
+    { value: isEn ? '100%' : '১০০%', labelEn: 'Digital Transparency', labelBn: 'ডিজিটাল স্বচ্ছতা' },
   ];
 
   return (
@@ -278,15 +279,15 @@ export const HomePage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b pb-4">
           <div>
             <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider block">
-              রুম ক্যাটাগরি
+              {isEn ? 'Room Categories' : 'রুম ক্যাটাগরি'}
             </span>
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-              আমাদের আধুনিক রুমসমূহ
+              {isEn ? 'Our Modern Living Spaces' : 'আমাদের আধুনিক রুমসমূহ'}
             </h2>
           </div>
           <Button asChild variant="outline" size="sm" className="gap-1.5 self-start sm:self-auto">
             <Link to="/rooms">
-              <span>সব রুম দেখুন</span>
+              <span>{isEn ? 'View All Rooms' : 'সব রুম দেখুন'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </Button>
@@ -331,14 +332,18 @@ export const HomePage: React.FC = () => {
                           {isEn ? meta.labelEn : meta.labelBn}
                         </h3>
                         <span className="text-sm font-extrabold text-emerald-700">
-                          ৳ {Number(room.monthlyRent).toLocaleString()} / মাস
+                          {formatCurrency(room.monthlyRent)} {isEn ? '/ mo' : '/ মাস'}
                         </span>
                       </div>
                       <p className="text-xs text-gray-600 line-clamp-2">
                         {isEn ? meta.descEn : meta.descBn}
                       </p>
                       <div className="pt-2 border-t border-gray-100 text-xs text-gray-500">
-                        আসন: <strong>{room.availableBedsCount}</strong> টি খালি / মোট {room.capacity} টি
+                        {isEn ? (
+                          <>Beds: <strong>{room.availableBedsCount}</strong> available / total {room.capacity}</>
+                        ) : (
+                          <>আসন: <strong>{room.availableBedsCount}</strong> টি খালি / মোট {room.capacity} টি</>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -346,7 +351,7 @@ export const HomePage: React.FC = () => {
                   <div className="p-5 pt-0">
                     <Button asChild size="sm" className="w-full gap-1" disabled={!isAvailable}>
                       <Link to="/admission">
-                        <span>{isAvailable ? 'সিটের আবেদন করুন' : 'স্টক আউট'}</span>
+                        <span>{isAvailable ? (isEn ? 'Apply for Bed' : 'সিটের আবেদন করুন') : (isEn ? 'Fully Occupied' : 'স্টক আউট')}</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
                     </Button>
@@ -367,14 +372,16 @@ export const HomePage: React.FC = () => {
             </div>
             <div>
               <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-                সাম্প্রতিক হোস্টেল নোটিশ
+                {isEn ? 'Recent Hostel Notices' : 'সাম্প্রতিক হোস্টেল নোটিশ'}
               </h2>
-              <p className="text-xs text-gray-500">জরুরি ঘোষণা ও একাডেমিক আপডেট</p>
+              <p className="text-xs text-gray-500">
+                {isEn ? 'Important announcements and academic updates' : 'জরুরি ঘোষণা ও একাডেমিক আপডেট'}
+              </p>
             </div>
           </div>
           <Button asChild variant="ghost" size="sm" className="text-xs text-emerald-700 gap-1">
             <Link to="/notices">
-              <span>সকল নোটিশ</span>
+              <span>{isEn ? 'All Notices' : 'সকল নোটিশ'}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </Button>
@@ -392,7 +399,7 @@ export const HomePage: React.FC = () => {
           </div>
         ) : notices.length === 0 ? (
           <div className="text-center py-8 bg-white rounded-xl border border-slate-200 p-6 text-xs text-slate-400">
-            বর্তমানে কোনো সাম্প্রতিক নোটিশ নেই।
+            {isEn ? 'Currently no recent notices.' : 'বর্তমানে কোনো সাম্প্রতিক নোটিশ নেই।'}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -410,12 +417,12 @@ export const HomePage: React.FC = () => {
                       <Calendar className="w-3 h-3" />
                       <span>
                         {notice.publishedAt
-                          ? new Date(notice.publishedAt).toLocaleDateString('bn-BD', {
+                          ? new Date(notice.publishedAt).toLocaleDateString(isEn ? 'en-US' : 'bn-BD', {
                               year: 'numeric',
                               month: 'short',
                               day: 'numeric',
                             })
-                          : new Date(notice.createdAt).toLocaleDateString('bn-BD', {
+                          : new Date(notice.createdAt).toLocaleDateString(isEn ? 'en-US' : 'bn-BD', {
                               year: 'numeric',
                               month: 'short',
                               day: 'numeric',
@@ -433,7 +440,7 @@ export const HomePage: React.FC = () => {
                 <div className="pt-3 border-t border-gray-100">
                   <Button asChild variant="link" size="sm" className="p-0 text-xs h-auto">
                     <Link to="/notices">
-                      <span>বিস্তারিত পড়ুন</span>
+                      <span>{isEn ? 'Read Details' : 'বিস্তারিত পড়ুন'}</span>
                       <ArrowRight className="w-3 h-3 ml-1" />
                     </Link>
                   </Button>
@@ -448,20 +455,22 @@ export const HomePage: React.FC = () => {
       <section className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-5xl">
         <div className="rounded-3xl bg-emerald-900 bg-gradient-to-r from-emerald-800 via-emerald-900 to-slate-900 text-white p-8 sm:p-12 text-center space-y-6 shadow-xl border border-emerald-700/50">
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white drop-shadow-sm">
-            হোস্টেলে আপনার আসন নিশ্চিত করতে প্রস্তুত?
+            {isEn ? 'Ready to secure your hostel seat?' : 'হোস্টেলে আপনার আসন নিশ্চিত করতে প্রস্তুত?'}
           </h2>
           <p className="text-emerald-100 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
-            কোনো পূর্ববর্তী অ্যাকাউন্টের প্রয়োজন ছাড়াই অনলাইনে সহজে সিটের জন্য আবেদন করুন।
+            {isEn
+              ? 'Easily apply for a seat online with full digital transparency and quick verification.'
+              : 'কোনো পূর্ববর্তী অ্যাকাউন্টের প্রয়োজন ছাড়াই অনলাইনে সহজে সিটের জন্য আবেদন করুন।'}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">
             <Button asChild size="lg" className="w-full sm:w-auto bg-white text-emerald-950 hover:bg-emerald-50 font-bold shadow-md px-6 py-2.5">
               <Link to="/admission">
-                <span>অনলাইনে আবেদন করুন</span>
+                <span>{isEn ? 'Apply Online' : 'অনলাইনে আবেদন করুন'}</span>
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="w-full sm:w-auto border-2 border-white/80 bg-white/10 text-white hover:bg-white hover:text-emerald-950 font-bold px-6 py-2.5 transition-colors">
-              <Link to="/contact">যোগাযোগ করুন</Link>
+              <Link to="/contact">{isEn ? 'Contact Us' : 'যোগাযোগ করুন'}</Link>
             </Button>
           </div>
         </div>

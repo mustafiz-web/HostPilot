@@ -25,14 +25,14 @@ export const Footer: React.FC = () => {
             </p>
             <div className="flex items-center gap-2 text-xs text-emerald-400 pt-2">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>নিরাপদ ও নির্ভরযোগ্য হোস্টেল প্রশাসন</span>
+              <span>{t('footer.safe_reliable', 'Safe & Reliable Hostel Administration')}</span>
             </div>
           </div>
 
           {/* Quick Links */}
           <div className="space-y-3">
             <h4 className="text-sm font-semibold uppercase tracking-wider text-white">
-              দ্রুত লিংক
+              {t('footer.quick_links', 'Quick Links')}
             </h4>
             <ul className="space-y-2 text-sm text-emerald-300">
               <li>
@@ -61,7 +61,7 @@ export const Footer: React.FC = () => {
           {/* Portals */}
           <div className="space-y-3">
             <h4 className="text-sm font-semibold uppercase tracking-wider text-white">
-              পোর্টাল এক্সেস
+              {t('footer.portal_access', 'Portal Access')}
             </h4>
             <ul className="space-y-2 text-sm text-emerald-300">
               <li>
@@ -79,7 +79,7 @@ export const Footer: React.FC = () => {
         </div>
 
         <div className="mt-10 border-t border-emerald-900 pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-emerald-400 gap-4">
-          <p>© {new Date().getFullYear()} Host Pilot. সর্বস্বত্ব সংরক্ষিত।</p>
+          <p>© {new Date().getFullYear()} Host Pilot. {t('footer.all_rights_reserved', 'All rights reserved.')}</p>
           <p className="flex items-center gap-1">
             Built with <Heart className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500" /> for modern hostels
           </p>

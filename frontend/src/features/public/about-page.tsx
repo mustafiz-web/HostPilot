@@ -169,7 +169,9 @@ export const AboutPage: React.FC = () => {
                 {t('about.rules_title')}
               </h2>
               <p className="text-xs text-slate-400">
-                হোস্টেলের শৃঙ্খলা ও নিরাপত্তা বজায় রাখতে আবাসিক শিক্ষার্থীদের জন্য পালনীয়
+                {isEn
+                  ? 'Essential guidelines for resident students to maintain hostel discipline and security'
+                  : 'হোস্টেলের শৃঙ্খলা ও নিরাপত্তা বজায় রাখতে আবাসিক শিক্ষার্থীদের জন্য পালনীয়'}
               </p>
             </div>
           </div>

@@ -11,32 +11,67 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
-const HOSTEL_RULES_DATA = {
-  gateClosingTime: 'রাত ১০:০০ টা (শুক্রবার ও ছুটির দিনে রাত ১০:৩০ টা)',
-  diningTimes: [
-    { meal: 'সকালের নাশতা (Breakfast)', time: 'সকাল ০৭:৩০ টা — সকাল ০৯:৩০ টা' },
-    { meal: 'দুপুরের খাবার (Lunch)', time: 'দুপুর ১২:৩০ টা — দুপুর ০২:৩০ টা' },
-    { meal: 'সান্ধ্য চা ও নাশতা (Evening Snacks)', time: 'বিকেল ০৫:৩০ টা — সন্ধ্যা ০৬:৩০ টা' },
-    { meal: 'রাতের খাবার (Dinner)', time: 'রাত ০৮:০০ টা — রাত ১০:০০ টা' },
-  ],
-  rulesList: [
-    'রাত ১০:০০ টার পর হোস্টেলের প্রধান ফটক বন্ধ থাকবে। বিশেষ প্রয়োজনে ওয়ার্ডেনের পূর্বানুমতি ব্যতিরেকে বিলম্ব গ্রহণযোগ্য নয়।',
-    'রুমের ভেতর কোনো প্রকার অতিরিক্ত উচ্চ ক্ষমতাসম্পন্ন হিটার, ইন্ডাকশন চুলা বা অবৈধ ইলেকট্রিক সরঞ্জাম ব্যবহার সম্পূর্ণ নিষিদ্ধ।',
-    'রাত ১১:০০ টা থেকে সকাল ০৬:০০ টা পর্যন্ত স্টাডি ও সাইলেন্স আওয়ার হিসেবে গণ্য হবে; কোনো ধরনের উচ্চশব্দ বা হইচই করা যাবে না।',
-    'হোস্টেল চত্বর সম্পূর্ণ ধূমপান ও মাদকমুক্ত এলাকা। যে কোনো অসদাচরণের জন্য সিট বরাদ্দ বাতিল ও বহিষ্কারের শাস্তিমূলক ব্যবস্থা গ্রহণ করা হবে।',
-    'বহিরাগত বা অনাবাসিক অতিথিকে রুমে রাখা সম্পূর্ণ বেআইনি। অভিভাবকগণ কেবল কমন লাউঞ্জে সাক্ষাৎ করতে পারবেন।',
-    'মাসিক সিট ভাড়া ও সার্ভিস চার্জ প্রতি মাসের ৭ তারিখের মধ্যে পরিশোধ করতে হবে।',
-  ],
-  emergencyContacts: [
-    { title: 'হোস্টেল সুপারিনটেনডেন্ট', name: 'অধ্যাপক ড. মুহাম্মদ আলমগীর', phone: '০১৭১১-১০০০০১', email: 'superintendent@campus.edu.bd' },
-    { title: 'সহকারী ওয়ার্ডেন (প্রশাসন ও শৃঙ্খলা)', name: 'জনাব কাজী মোসাদ্দেক হোসেন', phone: '০১৮১১-২০০০০২', email: 'warden.admin@campus.edu.bd' },
-    { title: 'ক্যাম্পাস মেডিকেল সেন্টার (২৪/৭ জরুরি)', name: 'মেডিকেল অফিসার অন-ডিউটি', phone: '০১৭২২-৩০০০০৩', email: 'medical@campus.edu.bd' },
-    { title: 'হোস্টেল প্রধান সিকিউরিটি পোস্ট', name: 'নিরাপত্তা নিয়ন্ত্রণ কক্ষ', phone: '০১৯৩৩-৪০০০০৪', email: 'security@campus.edu.bd' },
-  ],
-};
-
 export const StudentRulesPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language?.startsWith('en');
+
+  const diningTimes = [
+    {
+      meal: t('student.rules.meal_breakfast', 'Breakfast'),
+      time: isEn ? '07:30 AM — 09:30 AM' : 'সকাল ০৭:৩০ টা — সকাল ০৯:৩০ টা',
+    },
+    {
+      meal: t('student.rules.meal_lunch', 'Lunch'),
+      time: isEn ? '12:30 PM — 02:30 PM' : 'দুপুর ১২:৩০ টা — দুপুর ০২:৩০ টা',
+    },
+    {
+      meal: t('student.rules.meal_snacks', 'Evening Snacks'),
+      time: isEn ? '05:30 PM — 06:30 PM' : 'বিকেল ০৫:৩০ টা — সন্ধ্যা ০৬:৩০ টা',
+    },
+    {
+      meal: t('student.rules.meal_dinner', 'Dinner'),
+      time: isEn ? '08:00 PM — 10:00 PM' : 'রাত ০৮:০০ টা — রাত ১০:০০ টা',
+    },
+  ];
+
+  const rulesList = [
+    t('student.rules.rule_1', 'Hostel gate closes at 10:00 PM. Prior warden approval is required for emergency delays.'),
+    t('student.rules.rule_2', 'High-power electric heaters, induction stoves, and unauthorized devices are strictly prohibited.'),
+    t('student.rules.rule_3', 'Study and quiet hours are observed from 11:00 PM to 6:00 AM. Noise must be minimized.'),
+    t('student.rules.rule_4', 'Hostel premises are strictly smoke-free and drug-free. Violations lead to immediate seat cancellation.'),
+    t('student.rules.rule_5', 'Unregistered guests cannot stay overnight. Guardians may meet residents in the common lounge.'),
+    isEn
+      ? 'Monthly seat rent and utility charges must be cleared by the 7th of every month.'
+      : 'মাসিক সিট ভাড়া ও সার্ভিস চার্জ প্রতি মাসের ৭ তারিখের মধ্যে পরিশোধ করতে হবে।',
+  ];
+
+  const emergencyContacts = [
+    {
+      title: isEn ? 'Hostel Superintendent' : 'হোস্টেল সুপারিনটেনডেন্ট',
+      name: isEn ? 'Prof. Dr. Muhammad Alamgir' : 'অধ্যাপক ড. মুহাম্মদ আলমগীর',
+      phone: '01711-100001',
+      email: 'superintendent@campus.edu.bd',
+    },
+    {
+      title: isEn ? 'Assistant Warden (Discipline)' : 'সহকারী ওয়ার্ডেন (প্রশাসন ও শৃঙ্খলা)',
+      name: isEn ? 'Kazi Mosaddeq Hossain' : 'জনাব কাজী মোসাদ্দেক হোসেন',
+      phone: '01811-200002',
+      email: 'warden.admin@campus.edu.bd',
+    },
+    {
+      title: isEn ? 'Medical Center (24/7 Emergency)' : 'ক্যাম্পাস মেডিকেল সেন্টার (২৪/৭ জরুরি)',
+      name: isEn ? 'Medical Officer on Duty' : 'মেডিকেল অফিসার অন-ডিউটি',
+      phone: '01722-300003',
+      email: 'medical@campus.edu.bd',
+    },
+    {
+      title: isEn ? 'Hostel Security Desk' : 'হোস্টেল প্রধান সিকিউরিটি পোস্ট',
+      name: isEn ? 'Security Control Room' : 'নিরাপত্তা নিয়ন্ত্রণ কক্ষ',
+      phone: '01933-400004',
+      email: 'security@campus.edu.bd',
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -57,26 +92,28 @@ export const StudentRulesPage: React.FC = () => {
         <div className="bg-emerald-900 text-white rounded-2xl p-6 shadow-xs space-y-2 border border-emerald-800">
           <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold uppercase tracking-wider">
             <Clock className="w-4 h-4" />
-            <span>হোস্টেল প্রধান ফটক বন্ধের সময়</span>
+            <span>{t('student.rules.gate_timing_title')}</span>
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white">
-            {HOSTEL_RULES_DATA.gateClosingTime}
+            {isEn ? '10:00 PM (Fridays 10:30 PM)' : 'রাত ১০:০০ টা (শুক্রবার ও ছুটির দিনে রাত ১০:৩০ টা)'}
           </div>
           <p className="text-xs text-emerald-200 leading-relaxed">
-            রাত ১০:০০ টার পর মূল ফটক সম্পূর্ণ বন্ধ থাকবে। যৌক্তিক জরুরি কারণ ব্যতিরেকে রাত ১০:০০ টার পরে প্রবেশের অনুমতি নেই।
+            {t('student.rules.gate_rule')}
           </p>
         </div>
 
         <div className="bg-amber-900/90 text-white rounded-2xl p-6 shadow-xs space-y-2 border border-amber-800">
           <div className="flex items-center gap-2 text-amber-300 text-xs font-bold uppercase tracking-wider">
             <ShieldAlert className="w-4 h-4" />
-            <span>ক্যাম্পাস শৃঙ্খলা ও নিরাপত্তা বিধি</span>
+            <span>{isEn ? 'Campus Discipline & Code of Conduct' : 'ক্যাম্পাস শৃঙ্খলা ও নিরাপত্তা বিধি'}</span>
           </div>
           <div className="text-2xl sm:text-3xl font-black text-white">
-            জিরো টলারেন্স নীতি
+            {isEn ? 'Zero Tolerance Policy' : 'জিরো টলারেন্স নীতি'}
           </div>
           <p className="text-xs text-amber-200 leading-relaxed">
-            মাদক, ধূমপান, র‍্যাগিং ও যেকোনো প্রকার বিশৃঙ্খলা কঠোরভাবে নিষিদ্ধ। আইন ভঙ্গ করলে তাৎক্ষণিক সিট বাতিল ও প্রাতিষ্ঠানিক বহিষ্কার হবে।
+            {isEn
+              ? 'Drugs, smoking, ragging, and disruptive activities are strictly prohibited. Violations result in immediate seat cancellation.'
+              : 'মাদক, ধূমপান, র‍্যাগিং ও যেকোনো প্রকার বিশৃঙ্খলা কঠোরভাবে নিষিদ্ধ। আইন ভঙ্গ করলে তাৎক্ষণিক সিট বাতিল ও প্রাতিষ্ঠানিক বহিষ্কার হবে।'}
           </p>
         </div>
       </div>
@@ -85,11 +122,11 @@ export const StudentRulesPage: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
         <div className="flex items-center gap-2 border-b pb-3">
           <Utensils className="w-5 h-5 text-emerald-600" />
-          <h3 className="font-bold text-base text-slate-900">ডাইনিং মিল সময়সূচি (Dining Schedule)</h3>
+          <h3 className="font-bold text-base text-slate-900">{t('student.rules.meal_schedule')}</h3>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {HOSTEL_RULES_DATA.diningTimes.map((item, idx) => (
+          {diningTimes.map((item, idx) => (
             <div
               key={idx}
               className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1.5"
@@ -100,7 +137,9 @@ export const StudentRulesPage: React.FC = () => {
           ))}
         </div>
         <p className="text-[11px] text-slate-400">
-          * কোনো বেলার মিল বন্ধ রাখতে চাইলে আগের দিন রাত ১০:০০ টার মধ্যে ডাইনিং ম্যানেজারকে অবহিত করতে হবে।
+          {isEn
+            ? '* To pause or cancel a meal, notify the dining manager by 10:00 PM the previous evening.'
+            : '* কোনো বেলার মিল বন্ধ রাখতে চাইলে আগের দিন রাত ১০:০০ টার মধ্যে ডাইনিং ম্যানেজারকে অবহিত করতে হবে।'}
         </p>
       </div>
 
@@ -108,11 +147,11 @@ export const StudentRulesPage: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
         <div className="flex items-center gap-2 border-b pb-3">
           <AlertTriangle className="w-5 h-5 text-emerald-600" />
-          <h3 className="font-bold text-base text-slate-900">সাধারণ আচরণবিধি ও শৃঙ্খলা</h3>
+          <h3 className="font-bold text-base text-slate-900">{t('student.rules.general_rules_title')}</h3>
         </div>
 
         <div className="space-y-3">
-          {HOSTEL_RULES_DATA.rulesList.map((rule, idx) => (
+          {rulesList.map((rule, idx) => (
             <div
               key={idx}
               className="flex items-start gap-3 p-3.5 rounded-xl border border-slate-100 bg-slate-50/50 text-xs sm:text-sm text-slate-700"
@@ -128,11 +167,13 @@ export const StudentRulesPage: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
         <div className="flex items-center gap-2 border-b pb-3">
           <PhoneCall className="w-5 h-5 text-emerald-600" />
-          <h3 className="font-bold text-base text-slate-900">জরুরি যোগাযোগ ও হেল্পলাইন (Emergency Contacts)</h3>
+          <h3 className="font-bold text-base text-slate-900">
+            {isEn ? 'Emergency Helpline & Contacts' : 'জরুরি যোগাযোগ ও হেল্পলাইন'}
+          </h3>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {HOSTEL_RULES_DATA.emergencyContacts.map((contact, idx) => (
+          {emergencyContacts.map((contact, idx) => (
             <div
               key={idx}
               className="p-4 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 transition-all space-y-2"

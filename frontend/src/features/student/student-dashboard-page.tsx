@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency, formatDate, formatNumber } from '@/lib/formatters';
 
 interface StudentDashboardData {
   profile: {
@@ -122,7 +123,7 @@ export const StudentDashboardPage: React.FC = () => {
         <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
         <h3 className="text-lg font-bold text-slate-800">{t('admin.dashboard.load_error')}</h3>
         <p className="text-xs text-slate-500 max-w-sm mx-auto">
-          {(error as any)?.message || 'Failed to fetch student data from server.'}
+          {(error as any)?.message || t('common.error_occurred', 'Failed to fetch student data from server.')}
         </p>
         <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
           <RefreshCw className="w-4 h-4" />
@@ -143,7 +144,7 @@ export const StudentDashboardPage: React.FC = () => {
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 bg-emerald-700/50 text-emerald-200 px-3 py-1 rounded-full text-xs font-medium border border-emerald-600/40">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
-            <span>{t('student.nav.portal_title')}</span>
+            <span>{t('student.dashboard.welcome_badge', 'Student Portal')}</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
             {t('student.dashboard.welcome')}, {profile.name}!
@@ -189,7 +190,7 @@ export const StudentDashboardPage: React.FC = () => {
             {allocation ? (
               <>
                 <div className="text-2xl font-black text-slate-900">
-                  {t('student.room.room_number')} {allocation.roomNumber} ({allocation.bedCode})
+                  {t('student.room.room_number', { number: allocation.roomNumber })} ({allocation.bedCode})
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
                   {t('student.room.floor')}: {allocation.floor} • {allocation.roomType}
@@ -197,8 +198,8 @@ export const StudentDashboardPage: React.FC = () => {
               </>
             ) : (
               <>
-                <div className="text-xl font-bold text-slate-400">{t('student.dashboard.no_room')}</div>
-                <p className="text-xs text-slate-400 mt-1">{t('student.room.not_allocated')}</p>
+                <div className="text-xl font-bold text-slate-400">{t('student.dashboard.unallocated')}</div>
+                <p className="text-xs text-slate-400 mt-1">{t('student.dashboard.unallocated_desc')}</p>
               </>
             )}
           </div>
@@ -224,7 +225,7 @@ export const StudentDashboardPage: React.FC = () => {
             {currentDue ? (
               <>
                 <div className="text-2xl font-black text-amber-600">
-                  ৳ {currentDue.dueAmount.toLocaleString()}
+                  {formatCurrency(currentDue.dueAmount)}
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
                   {currentDue.billingPeriod} • {t('status.due')}
@@ -257,7 +258,7 @@ export const StudentDashboardPage: React.FC = () => {
           </div>
           <div>
             <div className="text-2xl font-black text-slate-900">
-              {activeComplaints.length}
+              {formatNumber(activeComplaints.length)}
             </div>
             <p className="text-xs text-slate-500 mt-1">
               {activeComplaints.length > 0 ? t('status.in_progress') : t('status.resolved')}
@@ -265,7 +266,7 @@ export const StudentDashboardPage: React.FC = () => {
           </div>
           <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
             <span className="text-slate-400">{t('student.nav.complaints')}:</span>
-            <span className="font-semibold text-slate-700">{complaints.length}</span>
+            <span className="font-semibold text-slate-700">{formatNumber(complaints.length)}</span>
           </div>
         </div>
 
@@ -281,13 +282,13 @@ export const StudentDashboardPage: React.FC = () => {
           </div>
           <div>
             <div className="text-2xl font-black text-slate-900">
-              {notices.length} টি বিজ্ঞপ্তি
+              {formatNumber(notices.length)} {t('student.dashboard.notices_count', 'Notices')}
             </div>
-            <p className="text-xs text-slate-500 mt-1">সর্বশেষ প্রকাশিত</p>
+            <p className="text-xs text-slate-500 mt-1">{t('student.dashboard.latest_published', 'Latest Published')}</p>
           </div>
           <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-            <span className="text-slate-400">ক্যাটাগরি:</span>
-            <span className="font-semibold text-slate-700">হোস্টেল নোটিশ</span>
+            <span className="text-slate-400">{t('student.complaints.category_field')}:</span>
+            <span className="font-semibold text-slate-700">{t('student.notices.title')}</span>
           </div>
         </div>
       </div>
@@ -299,13 +300,13 @@ export const StudentDashboardPage: React.FC = () => {
           <div className="flex items-center justify-between border-b pb-3">
             <div className="flex items-center gap-2">
               <Users className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-bold text-base text-slate-900">আমার রুম ও রুমমেট</h3>
+              <h3 className="font-bold text-base text-slate-900">{t('student.room.title')}</h3>
             </div>
             <Link
               to="/student/room"
               className="text-xs font-medium text-emerald-700 hover:underline flex items-center gap-1"
             >
-              <span>বিস্তারিত</span>
+              <span>{t('common.details')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -314,27 +315,27 @@ export const StudentDashboardPage: React.FC = () => {
             <>
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-2">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">ফ্লোর ও রুম:</span>
+                  <span className="text-slate-500">{t('student.room.floor_and_room', 'Floor & Room')}:</span>
                   <span className="font-bold text-slate-800">
-                    ফ্লোর {allocation.floor}, রুম {allocation.roomNumber}
+                    {t('student.room.floor')}: {allocation.floor}, {t('student.room.room_number', { number: allocation.roomNumber })}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">রুম টাইপ:</span>
+                  <span className="text-slate-500">{t('student.room.room_type')}:</span>
                   <span className="font-bold text-slate-800">{allocation.roomType}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">মাসিক সিট ভাড়া:</span>
+                  <span className="text-slate-500">{t('student.room.monthly_rent')}:</span>
                   <span className="font-extrabold text-emerald-700">
-                    ৳ {allocation.monthlyRent.toLocaleString()}
+                    {formatCurrency(allocation.monthlyRent)}
                   </span>
                 </div>
               </div>
 
               <div className="space-y-3 pt-1">
-                <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider">রুমের সহবাসী:</h4>
+                <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider">{t('student.room.roommates_title')}:</h4>
                 {roommates.length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">বর্তমানে অন্য কোনো রুমমেট বরাদ্দ নেই</p>
+                  <p className="text-xs text-slate-400 italic">{t('student.dashboard.no_roommates')}</p>
                 ) : (
                   roommates.map((rm, idx) => (
                     <div
@@ -351,7 +352,7 @@ export const StudentDashboardPage: React.FC = () => {
                         </div>
                       </div>
                       <span className="text-[11px] font-mono font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                        বেড {rm.bedCode}
+                        {t('student.room.bed')} {rm.bedCode}
                       </span>
                     </div>
                   ))
@@ -361,7 +362,7 @@ export const StudentDashboardPage: React.FC = () => {
           ) : (
             <div className="text-center py-8 space-y-2">
               <Bed className="w-8 h-8 text-slate-300 mx-auto" />
-              <p className="text-xs text-slate-500">বর্তমানে আপনার কোনো সিট বরাদ্দ নেই</p>
+              <p className="text-xs text-slate-500">{t('student.dashboard.unallocated')}</p>
             </div>
           )}
         </div>
@@ -371,13 +372,13 @@ export const StudentDashboardPage: React.FC = () => {
           <div className="flex items-center justify-between border-b pb-3">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-bold text-base text-slate-900">আমার দাখিলকৃত অভিযোগ ট্র্যাকিং</h3>
+              <h3 className="font-bold text-base text-slate-900">{t('student.complaints.title')}</h3>
             </div>
             <Link
               to="/student/complaints"
               className="text-xs font-medium text-emerald-700 hover:underline flex items-center gap-1"
             >
-              <span>সকল অভিযোগ</span>
+              <span>{t('student.complaints.filter_all')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -385,7 +386,7 @@ export const StudentDashboardPage: React.FC = () => {
           <div className="space-y-3">
             {complaints.length === 0 ? (
               <div className="text-center py-8 text-xs text-slate-400">
-                আপনি এখনও কোনো অভিযোগ জমা দেননি
+                {t('student.complaints.no_complaints')}
               </div>
             ) : (
               complaints.slice(0, 2).map((cmp) => (
@@ -407,9 +408,9 @@ export const StudentDashboardPage: React.FC = () => {
                   <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      <span>দাখিল: {new Date(cmp.createdAt).toLocaleDateString()}</span>
+                      <span>{t('student.complaints.card_submitted')} {formatDate(cmp.createdAt)}</span>
                     </span>
-                    <span className="font-medium text-slate-500">অগ্রাধিকার: {cmp.priority}</span>
+                    <span className="font-medium text-slate-500">{t('student.complaints.card_priority')} {cmp.priority}</span>
                   </div>
                 </div>
               ))
@@ -425,20 +426,20 @@ export const StudentDashboardPage: React.FC = () => {
           <div className="flex items-center justify-between border-b pb-3">
             <div className="flex items-center gap-2">
               <Bell className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-bold text-base text-slate-900">হোস্টেল নোটিশ বোর্ড</h3>
+              <h3 className="font-bold text-base text-slate-900">{t('student.notices.title')}</h3>
             </div>
             <Link
               to="/student/notices"
               className="text-xs font-medium text-emerald-700 hover:underline flex items-center gap-1"
             >
-              <span>সকল নোটিশ</span>
+              <span>{t('student.dashboard.all_notices')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
           <div className="space-y-3">
             {notices.length === 0 ? (
-              <div className="text-center py-8 text-xs text-slate-400">বর্তমানে কোনো নোটিশ নেই</div>
+              <div className="text-center py-8 text-xs text-slate-400">{t('student.dashboard.no_notices')}</div>
             ) : (
               notices.slice(0, 2).map((notice) => (
                 <div
@@ -450,7 +451,7 @@ export const StudentDashboardPage: React.FC = () => {
                       {notice.category}
                     </span>
                     <span className="text-[11px] text-slate-400">
-                      {new Date(notice.publishedAt).toLocaleDateString()}
+                      {formatDate(notice.publishedAt)}
                     </span>
                   </div>
                   <h4 className="font-bold text-sm text-slate-900">{notice.title}</h4>
@@ -490,13 +491,13 @@ export const StudentDashboardPage: React.FC = () => {
                   <div>
                     <div className="font-bold text-xs text-slate-900">{inv.billingPeriod}</div>
                     <div className="text-[11px] font-mono text-slate-400">
-                      {inv.receiptNumber} {inv.paidAt ? `• পরিশোধ: ${new Date(inv.paidAt).toLocaleDateString()}` : ''}
+                      {inv.receiptNumber} {inv.paidAt ? `• ${t('student.payments.th_paid')}: ${formatDate(inv.paidAt)}` : ''}
                     </div>
                   </div>
                   <div className="text-right flex items-center gap-3">
                     <div>
                       <div className="text-xs font-extrabold text-slate-900">
-                        ৳ {Number(inv.amount).toLocaleString()}
+                        {formatCurrency(inv.amount)}
                       </div>
                       <StatusBadge status={inv.status} />
                     </div>

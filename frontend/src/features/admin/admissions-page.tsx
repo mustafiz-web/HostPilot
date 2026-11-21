@@ -7,11 +7,11 @@ import {
   CheckCircle2,
   XCircle,
   Eye,
-  Phone,
   Mail,
-  Loader2,
+  Phone,
   AlertCircle,
   RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/formatters';
 
 interface AdmissionApplication {
   id: string;
@@ -41,80 +42,76 @@ interface AdmissionApplication {
   applicantName: string;
   email: string;
   phone: string;
-  gender: 'MALE' | 'FEMALE' | 'OTHER';
-  dateOfBirth: string;
+  department: string;
+  rollNumber: string;
+  gender: string;
   bloodGroup?: string;
-  address: string;
-  preferredRoomType: 'SINGLE' | 'DOUBLE' | 'QUAD';
   guardianName: string;
   guardianRelation: string;
   guardianPhone: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'WITHDRAWN';
+  address: string;
+  preferredRoomType: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   appliedAt: string;
-  decisionNote?: string;
-  reviewedByUser?: {
-    name: string;
-  };
+  decisionNote?: string | null;
 }
 
-export const AdmissionsPage: React.FC = () => {
-  const { t } = useTranslation();
+export const AdminAdmissionsPage: React.FC = () => {
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language?.startsWith('en');
   const queryClient = useQueryClient();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
   const [selectedApp, setSelectedApp] = useState<AdmissionApplication | null>(null);
   const [decisionNote, setDecisionNote] = useState('');
 
-  // Query: Get admissions from MySQL API
+  // 1. Fetch admission applications from real API
   const {
-    data: admissionsResponse,
+    data: applicationsResponse,
     isLoading,
     isError,
     error,
     refetch,
   } = useQuery({
-    queryKey: ['admin-admissions', { search: searchTerm, status: statusFilter }],
+    queryKey: ['admin-admissions', statusFilter],
     queryFn: async () => {
-      const res = await apiClient.get<AdmissionApplication[]>('/admissions', {
-        search: searchTerm || undefined,
-        status: statusFilter === 'ALL' ? undefined : statusFilter,
-      });
-      return res;
+      const params = new URLSearchParams();
+      if (statusFilter !== 'ALL') params.append('status', statusFilter);
+      return apiClient.get<AdmissionApplication[]>(`/admissions?${params.toString()}`);
     },
-    staleTime: 30 * 1000,
   });
 
-  const admissions = admissionsResponse?.data || [];
+  const admissions = (applicationsResponse?.data || []).filter((app) => {
+    const term = searchTerm.toLowerCase();
+    return (
+      app.applicantName.toLowerCase().includes(term) ||
+      app.applicationNumber.toLowerCase().includes(term) ||
+      app.email.toLowerCase().includes(term) ||
+      app.phone.includes(term)
+    );
+  });
 
-  // Mutation: Update application status
+  // 2. Mutation to approve/reject
   const decisionMutation = useMutation({
-    mutationFn: async ({
-      id,
-      status,
-      note,
-    }: {
-      id: string;
-      status: 'APPROVED' | 'REJECTED';
-      note?: string;
-    }) => {
-      const res = await apiClient.patch<AdmissionApplication>(`/admissions/${id}/status`, {
-        status,
-        decisionNote: note,
-      });
-      return res.data;
+    mutationFn: async ({ id, status, note }: { id: string; status: 'APPROVED' | 'REJECTED'; note?: string }) => {
+      return apiClient.patch(`/admissions/${id}/decision`, { status, decisionNote: note });
     },
-    onSuccess: (updated) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-admissions'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-metrics'] });
-      if (selectedApp?.id === updated.id) {
-        setSelectedApp(updated);
-      }
+      setSelectedApp(null);
+      setDecisionNote('');
     },
   });
 
-  const handleDecision = (id: string, newStatus: 'APPROVED' | 'REJECTED') => {
-    decisionMutation.mutate({ id, status: newStatus, note: decisionNote });
+  const handleDecision = (id: string, status: 'APPROVED' | 'REJECTED') => {
+    decisionMutation.mutate({ id, status, note: decisionNote.trim() || undefined });
+  };
+
+  const getRoomTypeLabel = (type: string) => {
+    if (type === 'SINGLE') return isEn ? 'Single Room' : 'একক রুম (Single)';
+    if (type === 'DOUBLE') return isEn ? 'Double Room' : 'দ্বৈত রুম (Double)';
+    return isEn ? 'Quad Room' : '৪-সিটার রুম (Quad)';
   };
 
   return (
@@ -145,14 +142,13 @@ export const AdmissionsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs text-slate-500 font-medium">{t('common.status')}:</span>
           <Button
             size="sm"
             variant={statusFilter === 'ALL' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('ALL')}
             className="text-xs rounded-full h-8"
           >
-            {t('common.all')} ({admissions.length})
+            {t('common.all')}
           </Button>
           <Button
             size="sm"
@@ -187,7 +183,7 @@ export const AdmissionsPage: React.FC = () => {
           <div className="p-8 space-y-4">
             <div className="flex items-center justify-center gap-2 text-slate-500 text-sm">
               <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
-              <span>আবেদন তালিকা লোড হচ্ছে...</span>
+              <span>{t('common.loading')}</span>
             </div>
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-12 w-full" />
@@ -197,19 +193,21 @@ export const AdmissionsPage: React.FC = () => {
           <div className="p-8 text-center space-y-3">
             <AlertCircle className="w-8 h-8 text-rose-500 mx-auto" />
             <p className="text-sm text-slate-700 font-medium">
-              {(error as any)?.message || 'আবেদন তালিকা লোড করতে সমস্যা হয়েছে'}
+              {(error as any)?.message || t('common.error_occurred')}
             </p>
             <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-1.5">
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>পুনরায় চেষ্টা করুন</span>
+              <span>{t('common.retry')}</span>
             </Button>
           </div>
         ) : admissions.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <UserPlus className="w-12 h-12 text-slate-300 mx-auto" />
-            <h4 className="text-base font-bold text-slate-800">কোনো ভর্তি আবেদন নেই</h4>
+            <h4 className="text-base font-bold text-slate-800">{t('admin.admissions.no_admissions')}</h4>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              পাবলিক ওয়েবসাইটের আবেদন ফর্মের মাধ্যমে ছাত্ররা আবেদন জমা দিলে এখানে তালিকাভুক্ত হবে।
+              {isEn
+                ? 'Applications submitted via the public portal will appear here.'
+                : 'পাবলিক ওয়েবসাইটের আবেদন ফর্মের মাধ্যমে ছাত্ররা আবেদন জমা দিলে এখানে তালিকাভুক্ত হবে।'}
             </p>
           </div>
         ) : (
@@ -248,19 +246,11 @@ export const AdmissionsPage: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-xs text-slate-700 font-medium">
                       <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">
-                        {app.preferredRoomType === 'SINGLE'
-                          ? 'একক রুম (Single)'
-                          : app.preferredRoomType === 'DOUBLE'
-                          ? 'দ্বৈত রুম (Double)'
-                          : '৪-সিটার রুম (Quad)'}
+                        {getRoomTypeLabel(app.preferredRoomType)}
                       </span>
                     </TableCell>
                     <TableCell className="text-xs text-slate-500">
-                      {new Date(app.appliedAt).toLocaleDateString('bn-BD', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
+                      {formatDate(app.appliedAt)}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={app.status} />
@@ -275,7 +265,7 @@ export const AdmissionsPage: React.FC = () => {
                             setSelectedApp(app);
                             setDecisionNote(app.decisionNote || '');
                           }}
-                          title="বিস্তারিত দেখুন"
+                          title={isEn ? 'View Details' : 'বিস্তারিত দেখুন'}
                         >
                           <Eye className="w-4 h-4 text-slate-600" />
                         </Button>
@@ -287,7 +277,7 @@ export const AdmissionsPage: React.FC = () => {
                               disabled={decisionMutation.isPending}
                               className="h-8 w-8 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                               onClick={() => handleDecision(app.id, 'APPROVED')}
-                              title="অনুমোদন করুন"
+                              title={t('admin.admissions.btn_approve')}
                             >
                               <CheckCircle2 className="w-4 h-4" />
                             </Button>
@@ -297,7 +287,7 @@ export const AdmissionsPage: React.FC = () => {
                               disabled={decisionMutation.isPending}
                               className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                               onClick={() => handleDecision(app.id, 'REJECTED')}
-                              title="বাতিল করুন"
+                              title={t('admin.admissions.btn_reject')}
                             >
                               <XCircle className="w-4 h-4" />
                             </Button>
@@ -320,10 +310,10 @@ export const AdmissionsPage: React.FC = () => {
             <DialogHeader>
               <DialogTitle className="text-base font-bold flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-emerald-600" />
-                <span>ভর্তি আবেদনের বিস্তারিত তথ্য</span>
+                <span>{isEn ? 'Admission Application Details' : 'ভর্তি আবেদনের বিস্তারিত তথ্য'}</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500 font-mono">
-                আবেদন নং: {selectedApp.applicationNumber}
+                {t('admin.admissions.th_app_no')}: {selectedApp.applicationNumber}
               </DialogDescription>
             </DialogHeader>
 
@@ -332,7 +322,8 @@ export const AdmissionsPage: React.FC = () => {
                 <div>
                   <h4 className="font-bold text-sm text-slate-900">{selectedApp.applicantName}</h4>
                   <p className="text-[11px] text-slate-500">
-                    লিঙ্গ: {selectedApp.gender === 'MALE' ? 'পুরুষ' : 'মহিলা'} • রক্ত: {selectedApp.bloodGroup || 'অজানা'}
+                    {isEn ? 'Gender: ' : 'লিঙ্গ: '}
+                    {selectedApp.gender === 'MALE' ? (isEn ? 'Male' : 'পুরুষ') : (isEn ? 'Female' : 'মহিলা')} • {t('student.profile.blood_group')}: {selectedApp.bloodGroup || 'N/A'}
                   </p>
                 </div>
                 <StatusBadge status={selectedApp.status} />
@@ -340,34 +331,36 @@ export const AdmissionsPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-2.5 bg-slate-50 rounded-lg">
-                  <span className="text-[10px] text-slate-400 block uppercase">যোগাযোগ নম্বর</span>
+                  <span className="text-[10px] text-slate-400 block uppercase">{t('student.profile.phone')}</span>
                   <p className="font-semibold text-slate-800 font-mono">{selectedApp.phone}</p>
                   <p className="text-[11px] text-slate-500 truncate">{selectedApp.email}</p>
                 </div>
                 <div className="p-2.5 bg-slate-50 rounded-lg">
-                  <span className="text-[10px] text-slate-400 block uppercase">পছন্দের রুমের ধরন</span>
-                  <p className="font-semibold text-slate-800">{selectedApp.preferredRoomType}</p>
+                  <span className="text-[10px] text-slate-400 block uppercase">{t('admin.admissions.th_room_pref')}</span>
+                  <p className="font-semibold text-slate-800">{getRoomTypeLabel(selectedApp.preferredRoomType)}</p>
                 </div>
               </div>
 
               <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-100">
                 <span className="text-[10px] text-emerald-800 font-bold block uppercase mb-1">
-                  অভিভাবকের বিবরণ
+                  {t('student.profile.guardian_info')}
                 </span>
                 <p className="font-semibold text-slate-900">
                   {selectedApp.guardianName} ({selectedApp.guardianRelation})
                 </p>
-                <p className="text-[11px] text-slate-600 font-mono">মোবাইল: {selectedApp.guardianPhone}</p>
+                <p className="text-[11px] text-slate-600 font-mono">
+                  {t('student.profile.guardian_phone')}: {selectedApp.guardianPhone}
+                </p>
               </div>
 
               <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-[10px] text-slate-400 block uppercase">স্থায়ী ঠিকানা</span>
+                <span className="text-[10px] text-slate-400 block uppercase">{t('student.profile.address')}</span>
                 <p className="text-slate-800">{selectedApp.address}</p>
               </div>
 
               {selectedApp.decisionNote && (
                 <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-200">
-                  <span className="text-[10px] text-amber-800 font-bold block uppercase">সিদ্ধান্তের নোট</span>
+                  <span className="text-[10px] text-amber-800 font-bold block uppercase">{isEn ? 'Decision Note' : 'সিদ্ধান্তের নোট'}</span>
                   <p className="text-slate-800">{selectedApp.decisionNote}</p>
                 </div>
               )}
@@ -375,7 +368,7 @@ export const AdmissionsPage: React.FC = () => {
 
             <DialogFooter className="gap-2 flex-col sm:flex-row">
               <Button size="sm" variant="outline" onClick={() => setSelectedApp(null)}>
-                বন্ধ করুন
+                {t('common.close')}
               </Button>
               {selectedApp.status === 'PENDING' && (
                 <>
@@ -386,15 +379,15 @@ export const AdmissionsPage: React.FC = () => {
                     onClick={() => handleDecision(selectedApp.id, 'REJECTED')}
                     className="bg-rose-600 hover:bg-rose-700"
                   >
-                    আবেদন বাতিল
+                    {t('admin.admissions.btn_reject')}
                   </Button>
                   <Button
                     size="sm"
                     disabled={decisionMutation.isPending}
                     onClick={() => handleDecision(selectedApp.id, 'APPROVED')}
-                    className="bg-emerald-600 hover:bg-emerald-700"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
                   >
-                    আবেদন অনুমোদন
+                    {t('admin.admissions.btn_approve')}
                   </Button>
                 </>
               )}
@@ -405,3 +398,5 @@ export const AdmissionsPage: React.FC = () => {
     </div>
   );
 };
+
+export const AdmissionsPage = AdminAdmissionsPage;

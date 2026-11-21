@@ -3,18 +3,18 @@ import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Users,
-  Search,
   Plus,
+  Search,
   Eye,
   Pencil,
   CheckCircle2,
   XCircle,
-  Phone,
   Mail,
-  Loader2,
-  AlertCircle,
+  Phone,
   ChevronLeft,
   ChevronRight,
+  AlertCircle,
+  Loader2,
   RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -40,8 +40,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { apiClient } from '@/lib/api-client';
+import { formatNumber } from '@/lib/formatters';
 
-interface StudentRecord {
+interface StudentItem {
   id: string;
   studentCode: string;
   phone: string;
@@ -51,40 +52,69 @@ interface StudentRecord {
   batch: string;
   bloodGroup?: string;
   address: string;
-  status: 'ACTIVE' | 'INACTIVE' | 'GRADUATED' | 'EXPELLED';
-  createdAt: string;
+  status: 'ACTIVE' | 'INACTIVE';
   user: {
-    id: string;
     name: string;
     email: string;
-    status: string;
   };
-  guardians: Array<{
-    id: string;
-    name: string;
-    relationship: string;
-    phone: string;
-  }>;
   activeAllocation?: {
     id: string;
     room?: { roomNumber: string };
     bed?: { bedCode: string };
+  } | null;
+  guardians: Array<{
+    name: string;
+    relationship: string;
+    phone: string;
+  }>;
+}
+
+interface StudentsResponse {
+  students: StudentItem[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
   };
 }
 
 export const StudentsPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language?.startsWith('en');
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
+
+  // Filters & Pagination
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
-  const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
+  // Modals
+  const [selectedStudent, setSelectedStudent] = useState<StudentItem | null>(null);
+  const [editingStudent, setEditingStudent] = useState<StudentItem | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-
-  // Edit Student Form State
-  const [editingStudent, setEditingStudent] = useState<StudentRecord | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // Form State: Add Student
+  const [newStudent, setNewStudent] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    studentCode: '',
+    department: 'Computer Science and Engineering',
+    rollNumber: '',
+    session: '2023-24',
+    batch: 'Batch 24',
+    bloodGroup: 'B+',
+    address: '',
+    guardianName: '',
+    guardianRelation: isEn ? 'Father' : 'পিতা',
+    guardianPhone: '',
+  });
+
+  // Form State: Edit Student
   const [editForm, setEditForm] = useState({
     name: '',
     phone: '',
@@ -97,27 +127,9 @@ export const StudentsPage: React.FC = () => {
     guardianName: '',
     guardianRelation: '',
     guardianPhone: '',
-    emergencyContact: '',
   });
 
-  // New Student Form State
-  const [newStudent, setNewStudent] = useState({
-    name: '',
-    email: '',
-    studentCode: '',
-    phone: '',
-    department: 'CSE',
-    rollNumber: '',
-    session: '2022-23',
-    batch: '23',
-    bloodGroup: 'B+',
-    address: '',
-    guardianName: '',
-    guardianRelation: 'পিতা',
-    guardianPhone: '',
-  });
-
-  // Query: Fetch Students with real pagination & filtering from MySQL
+  // Query: Fetch Students with pagination and filters
   const {
     data: studentsResponse,
     isLoading,
@@ -125,76 +137,88 @@ export const StudentsPage: React.FC = () => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['admin-students', { page, search: searchTerm, status: statusFilter }],
+    queryKey: ['admin-students', { page, limit, status: statusFilter, search: searchTerm }],
     queryFn: async () => {
-      const res = await apiClient.get<StudentRecord[]>('/students', {
+      const params: any = {
         page,
-        limit: 10,
-        search: searchTerm || undefined,
+        limit,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
-      });
+        search: searchTerm.trim() || undefined,
+      };
+      const res = await apiClient.get<StudentsResponse>('/students', params);
       return res;
     },
-    staleTime: 60 * 1000,
+    staleTime: 30 * 1000,
   });
 
-  const students = studentsResponse?.data || [];
-  const meta = studentsResponse?.meta || { total: 0, page: 1, limit: 10, totalPages: 1 };
+  const students = studentsResponse?.data?.students || [];
+  const meta = studentsResponse?.data?.meta || { page: 1, limit: 10, total: 0, totalPages: 1 };
 
-  // Mutation: Add new student
+  // Mutation: Add Student
   const addStudentMutation = useMutation({
     mutationFn: async (payload: typeof newStudent) => {
-      const res = await apiClient.post<StudentRecord>('/students', payload);
+      const res = await apiClient.post('/students', payload);
       return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-students'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-metrics'] });
       setAddModalOpen(false);
       setAddError(null);
       setNewStudent({
         name: '',
         email: '',
-        studentCode: '',
         phone: '',
-        department: 'CSE',
+        studentCode: '',
+        department: 'Computer Science and Engineering',
         rollNumber: '',
-        session: '2022-23',
-        batch: '23',
+        session: '2023-24',
+        batch: 'Batch 24',
         bloodGroup: 'B+',
         address: '',
         guardianName: '',
-        guardianRelation: 'পিতা',
+        guardianRelation: isEn ? 'Father' : 'পিতা',
         guardianPhone: '',
       });
     },
     onError: (err: any) => {
-      setAddError(err.message || 'শিক্ষার্থী তৈরি করতে সমস্যা হয়েছে');
+      setAddError(err.message || t('common.error_occurred'));
     },
   });
 
-  // Mutation: Update existing student
+  // Mutation: Update Student
   const updateStudentMutation = useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: typeof editForm }) => {
-      const res = await apiClient.patch<StudentRecord>(`/students/${id}`, payload);
+      const res = await apiClient.patch(`/students/${id}`, payload);
       return res.data;
     },
-    onSuccess: (updatedStudent) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-students'] });
       setEditingStudent(null);
       setEditError(null);
-      if (selectedStudent?.id === updatedStudent.id) {
-        setSelectedStudent(updatedStudent);
-      }
     },
     onError: (err: any) => {
-      setEditError(err.message || 'শিক্ষার্থীর তথ্য আপডেট করতে সমস্যা হয়েছে');
+      setEditError(err.message || t('common.error_occurred'));
     },
   });
 
-  const handleOpenEdit = (student: StudentRecord) => {
+  // Mutation: Toggle Status (Deactivate / Activate)
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ id, nextStatus }: { id: string; nextStatus: 'ACTIVE' | 'INACTIVE' }) => {
+      const res = await apiClient.patch(`/students/${id}`, { status: nextStatus });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-metrics'] });
+    },
+    onError: (err: any) => {
+      alert(err.message || t('common.error_occurred'));
+    },
+  });
+
+  const handleOpenEdit = (student: StudentItem) => {
     setEditingStudent(student);
-    setEditError(null);
-    const g = student.guardians?.[0];
     setEditForm({
       name: student.user?.name || '',
       phone: student.phone || '',
@@ -204,11 +228,17 @@ export const StudentsPage: React.FC = () => {
       batch: student.batch || '',
       bloodGroup: student.bloodGroup || '',
       address: student.address || '',
-      guardianName: g?.name || '',
-      guardianRelation: g?.relationship || '',
-      guardianPhone: g?.phone || '',
-      emergencyContact: (g as any)?.emergencyContact || '',
+      guardianName: student.guardians?.[0]?.name || '',
+      guardianRelation: student.guardians?.[0]?.relationship || '',
+      guardianPhone: student.guardians?.[0]?.phone || '',
     });
+    setEditError(null);
+  };
+
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddError(null);
+    addStudentMutation.mutate(newStudent);
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {
@@ -218,31 +248,9 @@ export const StudentsPage: React.FC = () => {
     updateStudentMutation.mutate({ id: editingStudent.id, payload: editForm });
   };
 
-  // Mutation: Toggle status
-  const toggleStatusMutation = useMutation({
-    mutationFn: async ({ id, newStatus }: { id: string; newStatus: 'ACTIVE' | 'INACTIVE' }) => {
-      const res = await apiClient.patch<StudentRecord>(`/students/${id}/status`, {
-        status: newStatus,
-      });
-      return res.data;
-    },
-    onSuccess: (updatedStudent) => {
-      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
-      if (selectedStudent?.id === updatedStudent.id) {
-        setSelectedStudent((prev) => (prev ? { ...prev, status: updatedStudent.status } : null));
-      }
-    },
-  });
-
-  const handleToggleStatus = (student: StudentRecord) => {
+  const handleToggleStatus = (student: StudentItem) => {
     const nextStatus = student.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    toggleStatusMutation.mutate({ id: student.id, newStatus: nextStatus });
-  };
-
-  const handleAddSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setAddError(null);
-    addStudentMutation.mutate(newStudent);
+    toggleStatusMutation.mutate({ id: student.id, nextStatus });
   };
 
   return (
@@ -258,16 +266,27 @@ export const StudentsPage: React.FC = () => {
             {t('admin.students.subtitle')}
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setAddError(null);
-            setAddModalOpen(true);
-          }}
-          className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{t('admin.dashboard.quick_admissions')}</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            className="gap-1.5 text-xs text-slate-700"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>{t('common.refresh')}</span>
+          </Button>
+          <Button
+            onClick={() => {
+              setAddError(null);
+              setAddModalOpen(true);
+            }}
+            className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t('admin.students.btn_add_student', 'Add Student')}</span>
+          </Button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -286,7 +305,6 @@ export const StudentsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs text-slate-500 font-medium">{t('common.filter')}:</span>
           <Button
             size="sm"
             variant={statusFilter === 'ALL' ? 'default' : 'outline'}
@@ -329,7 +347,7 @@ export const StudentsPage: React.FC = () => {
           <div className="p-8 space-y-4">
             <div className="flex items-center justify-center gap-2 text-slate-500 text-sm">
               <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
-              <span>ডেটাবেজ থেকে শিক্ষার্থী তথ্য লোড হচ্ছে...</span>
+              <span>{t('common.loading')}</span>
             </div>
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-12 w-full" />
@@ -339,21 +357,21 @@ export const StudentsPage: React.FC = () => {
           <div className="p-8 text-center space-y-3">
             <AlertCircle className="w-8 h-8 text-rose-500 mx-auto" />
             <p className="text-sm text-slate-700 font-medium">
-              {(error as any)?.message || 'শিক্ষার্থী তালিকা লোড করা যায়নি'}
+              {(error as any)?.message || t('common.error_occurred')}
             </p>
             <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-1.5">
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>পুনরায় চেষ্টা করুন</span>
+              <span>{t('common.retry')}</span>
             </Button>
           </div>
         ) : students.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <Users className="w-12 h-12 text-slate-300 mx-auto" />
-            <h4 className="text-base font-bold text-slate-800">কোনো শিক্ষার্থী পাওয়া যায়নি</h4>
+            <h4 className="text-base font-bold text-slate-800">{t('admin.students.empty_students')}</h4>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               {searchTerm
-                ? 'আপনার সার্চ টার্মের সাথে মিল রেখে কোনো রেকর্ড পাওয়া যায়নি।'
-                : 'বর্তমানে কোনো শিক্ষার্থী নিবন্ধিত নেই। নতুন শিক্ষার্থী যুক্ত করতে ওপরের বাটন চাপুন।'}
+                ? (isEn ? 'No records match your search criteria.' : 'আপনার সার্চ টার্মের সাথে মিল রেখে কোনো রেকর্ড পাওয়া যায়নি।')
+                : (isEn ? 'No students registered currently. Click the button above to add a student.' : 'বর্তমানে কোনো শিক্ষার্থী নিবন্ধিত নেই। নতুন শিক্ষার্থী যুক্ত করতে ওপরের বাটন চাপুন।')}
             </p>
           </div>
         ) : (
@@ -394,16 +412,16 @@ export const StudentsPage: React.FC = () => {
                       <TableCell className="text-xs text-slate-700">
                         <span className="font-medium">{student.department}</span>
                         <span className="text-[11px] text-slate-400 block font-mono">
-                          রোল: {student.rollNumber} • {student.session}
+                          {t('student.profile.roll_number')}: {student.rollNumber} • {student.session}
                         </span>
                       </TableCell>
                       <TableCell className="text-xs text-slate-700">
                         {student.activeAllocation ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            রুম {student.activeAllocation.room?.roomNumber} (বেড {student.activeAllocation.bed?.bedCode})
+                            {t('student.room.room_number', { number: student.activeAllocation.room?.roomNumber })} ({t('student.room.bed')} {student.activeAllocation.bed?.bedCode})
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-400 italic">সিট বরাদ্দ নেই</span>
+                          <span className="text-xs text-slate-400 italic">{t('student.room.not_allocated')}</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -416,7 +434,7 @@ export const StudentsPage: React.FC = () => {
                             size="sm"
                             className="h-8 w-8 p-0"
                             onClick={() => setSelectedStudent(student)}
-                            title="বিস্তারিত দেখুন"
+                            title={isEn ? 'View Details' : 'বিস্তারিত দেখুন'}
                           >
                             <Eye className="w-4 h-4 text-slate-600" />
                           </Button>
@@ -425,7 +443,7 @@ export const StudentsPage: React.FC = () => {
                             size="sm"
                             className="h-8 w-8 p-0 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50"
                             onClick={() => handleOpenEdit(student)}
-                            title="তথ্য পরিবর্তন করুন (Edit)"
+                            title={isEn ? 'Edit Information' : 'তথ্য পরিবর্তন করুন (Edit)'}
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
@@ -439,7 +457,7 @@ export const StudentsPage: React.FC = () => {
                                 : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'
                             }`}
                             onClick={() => handleToggleStatus(student)}
-                            title={student.status === 'ACTIVE' ? 'নিষ্ক্রিয় করুন' : 'সক্রিয় করুন'}
+                            title={student.status === 'ACTIVE' ? t('admin.students.btn_deactivate') : t('admin.students.btn_activate')}
                           >
                             {student.status === 'ACTIVE' ? (
                               <XCircle className="w-4 h-4" />
@@ -459,8 +477,9 @@ export const StudentsPage: React.FC = () => {
             {meta.totalPages > 1 && (
               <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
                 <span>
-                  মোট {meta.total} জন শিক্ষার্থীর মধ্যে {((meta.page - 1) * meta.limit) + 1} -{' '}
-                  {Math.min(meta.page * meta.limit, meta.total)} প্রদর্শিত হচ্ছে
+                  {isEn
+                    ? `Showing ${((meta.page - 1) * meta.limit) + 1} - ${Math.min(meta.page * meta.limit, meta.total)} of ${formatNumber(meta.total)} students`
+                    : `মোট ${meta.total} জন শিক্ষার্থীর মধ্যে ${((meta.page - 1) * meta.limit) + 1} - ${Math.min(meta.page * meta.limit, meta.total)} প্রদর্শিত হচ্ছে`}
                 </span>
                 <div className="flex items-center gap-1.5">
                   <Button
@@ -471,7 +490,7 @@ export const StudentsPage: React.FC = () => {
                     className="h-8 px-2 gap-1"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
-                    <span>পূর্ববর্তী</span>
+                    <span>{isEn ? 'Previous' : 'পূর্ববর্তী'}</span>
                   </Button>
                   <span className="px-2 font-mono font-semibold">
                     {meta.page} / {meta.totalPages}
@@ -483,7 +502,7 @@ export const StudentsPage: React.FC = () => {
                     onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
                     className="h-8 px-2 gap-1"
                   >
-                    <span>পরবর্তী</span>
+                    <span>{isEn ? 'Next' : 'পরবর্তী'}</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </Button>
                 </div>
@@ -498,11 +517,11 @@ export const StudentsPage: React.FC = () => {
         <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
-              <Plus className="w-5 h-5 text-emerald-600" />
-              <span>নতুন শিক্ষার্থী নিবন্ধন (Add Student)</span>
+              <Users className="w-5 h-5 text-emerald-600" />
+              <span>{isEn ? 'Add New Student' : 'নতুন শিক্ষার্থী নিবন্ধন (Add Student)'}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              শিক্ষার্থী প্রোফাইল এবং লগইন ইউজার অ্যাকাউন্ট একবারে তৈরি করা হবে।
+              {isEn ? 'Create student profile and login user account in one step.' : 'শিক্ষার্থী প্রোফাইল এবং লগইন ইউজার অ্যাকাউন্ট একবারে তৈরি করা হবে।'}
             </DialogDescription>
           </DialogHeader>
 
@@ -517,12 +536,12 @@ export const StudentsPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label htmlFor="stu-name" className="text-xs">
-                  শিক্ষার্থীর পূর্ণ নাম *
+                  {t('student.profile.full_name')} *
                 </Label>
                 <Input
                   id="stu-name"
                   required
-                  placeholder="e.g. তানভীর আহমেদ"
+                  placeholder={isEn ? 'e.g. Tanvir Ahmed' : 'e.g. তানভীর আহমেদ'}
                   value={newStudent.name}
                   onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
                   className="h-9 text-xs"
@@ -531,12 +550,12 @@ export const StudentsPage: React.FC = () => {
 
               <div className="space-y-1">
                 <Label htmlFor="stu-code" className="text-xs">
-                  স্টুডেন্ট কোড / আইডি *
+                  {t('auth.student_id_label')} *
                 </Label>
                 <Input
                   id="stu-code"
                   required
-                  placeholder="e.g. HP-STU-2026-002"
+                  placeholder="e.g. STU-2024-001"
                   value={newStudent.studentCode}
                   onChange={(e) => setNewStudent({ ...newStudent, studentCode: e.target.value })}
                   className="h-9 text-xs font-mono"
@@ -545,7 +564,7 @@ export const StudentsPage: React.FC = () => {
 
               <div className="space-y-1">
                 <Label htmlFor="stu-email" className="text-xs">
-                  ইমেইল ঠিকানা (লগইনের জন্য) *
+                  {t('student.profile.email')} *
                 </Label>
                 <Input
                   id="stu-email"
@@ -554,13 +573,13 @@ export const StudentsPage: React.FC = () => {
                   placeholder="student@campus.edu.bd"
                   value={newStudent.email}
                   onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
-                  className="h-9 text-xs"
+                  className="h-9 text-xs font-mono"
                 />
               </div>
 
               <div className="space-y-1">
                 <Label htmlFor="stu-phone" className="text-xs">
-                  ১১ ডিজিটের মোবাইল নম্বর *
+                  {t('student.profile.phone')} *
                 </Label>
                 <Input
                   id="stu-phone"
@@ -574,12 +593,11 @@ export const StudentsPage: React.FC = () => {
 
               <div className="space-y-1">
                 <Label htmlFor="stu-dept" className="text-xs">
-                  বিভাগ (Department) *
+                  {t('student.profile.department')} *
                 </Label>
                 <Input
                   id="stu-dept"
                   required
-                  placeholder="e.g. CSE / EEE / BBA"
                   value={newStudent.department}
                   onChange={(e) => setNewStudent({ ...newStudent, department: e.target.value })}
                   className="h-9 text-xs"
@@ -588,12 +606,12 @@ export const StudentsPage: React.FC = () => {
 
               <div className="space-y-1">
                 <Label htmlFor="stu-roll" className="text-xs">
-                  ক্লাস রোল নম্বর *
+                  {t('student.profile.roll_number')} *
                 </Label>
                 <Input
                   id="stu-roll"
                   required
-                  placeholder="e.g. 2022-CSE-045"
+                  placeholder="e.g. 2024101"
                   value={newStudent.rollNumber}
                   onChange={(e) => setNewStudent({ ...newStudent, rollNumber: e.target.value })}
                   className="h-9 text-xs font-mono"
@@ -602,12 +620,12 @@ export const StudentsPage: React.FC = () => {
 
               <div className="space-y-1">
                 <Label htmlFor="stu-session" className="text-xs">
-                  সেশন ও ব্যাচ *
+                  {t('student.profile.session')} & {t('student.profile.batch')} *
                 </Label>
                 <Input
                   id="stu-session"
                   required
-                  placeholder="e.g. 2022-23 (ব্যাচ ২৩)"
+                  placeholder="e.g. 2022-23 (Batch 23)"
                   value={newStudent.session}
                   onChange={(e) => setNewStudent({ ...newStudent, session: e.target.value })}
                   className="h-9 text-xs"
@@ -616,11 +634,11 @@ export const StudentsPage: React.FC = () => {
 
               <div className="space-y-1">
                 <Label htmlFor="stu-blood" className="text-xs">
-                  রক্তের গ্রুপ
+                  {t('student.profile.blood_group')}
                 </Label>
                 <Input
                   id="stu-blood"
-                  placeholder="e.g. B+"
+                  placeholder="e.g. A+, B+, O+"
                   value={newStudent.bloodGroup}
                   onChange={(e) => setNewStudent({ ...newStudent, bloodGroup: e.target.value })}
                   className="h-9 text-xs"
@@ -630,12 +648,12 @@ export const StudentsPage: React.FC = () => {
 
             <div className="space-y-1">
               <Label htmlFor="stu-addr" className="text-xs">
-                স্থায়ী ঠিকানা *
+                {t('student.profile.address')} *
               </Label>
               <Input
                 id="stu-addr"
                 required
-                placeholder="গ্রাম/বাড়ি, ডাকঘর, থানা ও জেলা"
+                placeholder={isEn ? 'Village/Street, Post, Thana & District' : 'গ্রাম/বাড়ি, ডাকঘর, থানা ও জেলা'}
                 value={newStudent.address}
                 onChange={(e) => setNewStudent({ ...newStudent, address: e.target.value })}
                 className="h-9 text-xs"
@@ -644,16 +662,16 @@ export const StudentsPage: React.FC = () => {
 
             {/* Guardian Info */}
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-              <h4 className="text-xs font-bold text-slate-800">অভিভাবকের তথ্য (Primary Guardian)</h4>
+              <h4 className="text-xs font-bold text-slate-800">{t('student.profile.guardian_info')}</h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="space-y-1">
                   <Label htmlFor="g-name" className="text-[11px]">
-                    অভিভাবকের নাম *
+                    {t('student.profile.guardian_name')} *
                   </Label>
                   <Input
                     id="g-name"
                     required
-                    placeholder="নাম"
+                    placeholder={isEn ? 'Guardian Name' : 'নাম'}
                     value={newStudent.guardianName}
                     onChange={(e) => setNewStudent({ ...newStudent, guardianName: e.target.value })}
                     className="h-8 text-xs bg-white"
@@ -661,12 +679,12 @@ export const StudentsPage: React.FC = () => {
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="g-rel" className="text-[11px]">
-                    সম্পর্ক *
+                    {isEn ? 'Relationship *' : 'সম্পর্ক *'}
                   </Label>
                   <Input
                     id="g-rel"
                     required
-                    placeholder="e.g. পিতা/মাতা"
+                    placeholder={isEn ? 'e.g. Father/Mother' : 'e.g. পিতা/মাতা'}
                     value={newStudent.guardianRelation}
                     onChange={(e) => setNewStudent({ ...newStudent, guardianRelation: e.target.value })}
                     className="h-8 text-xs bg-white"
@@ -674,7 +692,7 @@ export const StudentsPage: React.FC = () => {
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="g-phone" className="text-[11px]">
-                    মোবাইল নম্বর *
+                    {t('student.profile.guardian_phone')} *
                   </Label>
                   <Input
                     id="g-phone"
@@ -695,21 +713,21 @@ export const StudentsPage: React.FC = () => {
                 size="sm"
                 onClick={() => setAddModalOpen(false)}
               >
-                বাতিল
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
                 size="sm"
                 disabled={addStudentMutation.isPending}
-                className="bg-emerald-600 hover:bg-emerald-700"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {addStudentMutation.isPending ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                    <span>সংরক্ষণ হচ্ছে...</span>
+                    <span>{t('common.loading')}</span>
                   </>
                 ) : (
-                  <span>শিক্ষার্থী সংরক্ষণ করুন</span>
+                  <span>{t('common.save')}</span>
                 )}
               </Button>
             </DialogFooter>
@@ -724,7 +742,7 @@ export const StudentsPage: React.FC = () => {
             <DialogHeader>
               <DialogTitle className="text-base font-bold flex items-center gap-2">
                 <Users className="w-5 h-5 text-emerald-600" />
-                <span>শিক্ষার্থী বিস্তারিত প্রোফাইল</span>
+                <span>{t('admin.students.dialog_detail_title')}</span>
               </DialogTitle>
             </DialogHeader>
 
@@ -739,25 +757,25 @@ export const StudentsPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-2.5 bg-slate-50 rounded-lg">
-                  <span className="text-[10px] text-slate-400 block uppercase">বিভাগ ও রোল</span>
+                  <span className="text-[10px] text-slate-400 block uppercase">{t('admin.students.th_academic')}</span>
                   <p className="font-semibold text-slate-800">{selectedStudent.department}</p>
-                  <p className="text-[11px] text-slate-500 font-mono">রোল: {selectedStudent.rollNumber}</p>
+                  <p className="text-[11px] text-slate-500 font-mono">{t('student.profile.roll_number')}: {selectedStudent.rollNumber}</p>
                 </div>
                 <div className="p-2.5 bg-slate-50 rounded-lg">
-                  <span className="text-[10px] text-slate-400 block uppercase">যোগাযোগ</span>
+                  <span className="text-[10px] text-slate-400 block uppercase">{t('admin.students.th_contact')}</span>
                   <p className="font-semibold text-slate-800">{selectedStudent.phone}</p>
                   <p className="text-[11px] text-slate-500 truncate">{selectedStudent.user?.email}</p>
                 </div>
                 <div className="p-2.5 bg-slate-50 rounded-lg">
-                  <span className="text-[10px] text-slate-400 block uppercase">রক্তের গ্রুপ</span>
-                  <p className="font-semibold text-slate-800">{selectedStudent.bloodGroup || 'অজানা'}</p>
+                  <span className="text-[10px] text-slate-400 block uppercase">{t('student.profile.blood_group')}</span>
+                  <p className="font-semibold text-slate-800">{selectedStudent.bloodGroup || 'N/A'}</p>
                 </div>
                 <div className="p-2.5 bg-slate-50 rounded-lg">
-                  <span className="text-[10px] text-slate-400 block uppercase">বর্তমান সিট</span>
+                  <span className="text-[10px] text-slate-400 block uppercase">{t('admin.students.th_room')}</span>
                   <p className="font-semibold text-slate-800">
                     {selectedStudent.activeAllocation
-                      ? `রুম ${selectedStudent.activeAllocation.room?.roomNumber}`
-                      : 'বরাদ্দ নেই'}
+                      ? t('student.room.room_number', { number: selectedStudent.activeAllocation.room?.roomNumber })
+                      : t('student.room.not_allocated')}
                   </p>
                 </div>
               </div>
@@ -765,26 +783,26 @@ export const StudentsPage: React.FC = () => {
               {selectedStudent.guardians && selectedStudent.guardians.length > 0 && (
                 <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-100">
                   <span className="text-[10px] text-emerald-800 font-bold block uppercase mb-1">
-                    অভিভাবকের বিবরণ
+                    {t('student.profile.guardian_info')}
                   </span>
                   <p className="font-semibold text-slate-900">
                     {selectedStudent.guardians[0].name} ({selectedStudent.guardians[0].relationship})
                   </p>
                   <p className="text-[11px] text-slate-600 font-mono">
-                    মোবাইল: {selectedStudent.guardians[0].phone}
+                    {t('student.profile.guardian_phone')}: {selectedStudent.guardians[0].phone}
                   </p>
                 </div>
               )}
 
               <div className="p-2.5 bg-slate-50 rounded-lg">
-                <span className="text-[10px] text-slate-400 block uppercase">স্থায়ী ঠিকানা</span>
+                <span className="text-[10px] text-slate-400 block uppercase">{t('student.profile.address')}</span>
                 <p className="text-slate-800">{selectedStudent.address}</p>
               </div>
             </div>
 
             <DialogFooter>
               <Button size="sm" variant="outline" onClick={() => setSelectedStudent(null)}>
-                বন্ধ করুন
+                {t('common.close')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -798,10 +816,10 @@ export const StudentsPage: React.FC = () => {
             <DialogHeader>
               <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                 <Pencil className="w-5 h-5 text-emerald-600" />
-                <span>শিক্ষার্থীর তথ্য পরিবর্তন (Edit Student Information)</span>
+                <span>{isEn ? 'Edit Student Information' : 'শিক্ষার্থীর তথ্য পরিবর্তন (Edit Student Information)'}</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                শিক্ষার্থীর ব্যক্তিগত, অ্যাকাডেমিক এবং অভিভাবকের অনুমোদিত তথ্য আপডেট করুন।
+                {isEn ? 'Update student personal, academic, and guardian records.' : 'শিক্ষার্থীর ব্যক্তিগত, অ্যাকাডেমিক এবং অভিভাবকের অনুমোদিত তথ্য আপডেট করুন।'}
               </DialogDescription>
             </DialogHeader>
 
@@ -816,7 +834,7 @@ export const StudentsPage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="edit-name" className="text-xs">
-                    পূর্ণ নাম *
+                    {t('student.profile.full_name')} *
                   </Label>
                   <Input
                     id="edit-name"
@@ -829,7 +847,7 @@ export const StudentsPage: React.FC = () => {
 
                 <div className="space-y-1">
                   <Label htmlFor="edit-phone" className="text-xs">
-                    মোবাইল নম্বর *
+                    {t('student.profile.phone')} *
                   </Label>
                   <Input
                     id="edit-phone"
@@ -842,7 +860,7 @@ export const StudentsPage: React.FC = () => {
 
                 <div className="space-y-1">
                   <Label htmlFor="edit-dept" className="text-xs">
-                    বিভাগ (Department) *
+                    {t('student.profile.department')} *
                   </Label>
                   <Input
                     id="edit-dept"
@@ -855,7 +873,7 @@ export const StudentsPage: React.FC = () => {
 
                 <div className="space-y-1">
                   <Label htmlFor="edit-roll" className="text-xs">
-                    ক্লাস রোল নম্বর *
+                    {t('student.profile.roll_number')} *
                   </Label>
                   <Input
                     id="edit-roll"
@@ -868,7 +886,7 @@ export const StudentsPage: React.FC = () => {
 
                 <div className="space-y-1">
                   <Label htmlFor="edit-session" className="text-xs">
-                    সেশন *
+                    {t('student.profile.session')} *
                   </Label>
                   <Input
                     id="edit-session"
@@ -881,7 +899,7 @@ export const StudentsPage: React.FC = () => {
 
                 <div className="space-y-1">
                   <Label htmlFor="edit-batch" className="text-xs">
-                    ব্যাচ *
+                    {t('student.profile.batch')} *
                   </Label>
                   <Input
                     id="edit-batch"
@@ -894,7 +912,7 @@ export const StudentsPage: React.FC = () => {
 
                 <div className="space-y-1">
                   <Label htmlFor="edit-blood" className="text-xs">
-                    রক্তের গ্রুপ
+                    {t('student.profile.blood_group')}
                   </Label>
                   <Input
                     id="edit-blood"
@@ -907,7 +925,7 @@ export const StudentsPage: React.FC = () => {
 
               <div className="space-y-1">
                 <Label htmlFor="edit-addr" className="text-xs">
-                  স্থায়ী ঠিকানা *
+                  {t('student.profile.address')} *
                 </Label>
                 <Input
                   id="edit-addr"
@@ -920,11 +938,11 @@ export const StudentsPage: React.FC = () => {
 
               {/* Guardian Info */}
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-                <h4 className="text-xs font-bold text-slate-800">অভিভাবকের তথ্য (Primary Guardian)</h4>
+                <h4 className="text-xs font-bold text-slate-800">{t('student.profile.guardian_info')}</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div className="space-y-1">
                     <Label htmlFor="edit-g-name" className="text-[11px]">
-                      অভিভাবকের নাম
+                      {t('student.profile.guardian_name')}
                     </Label>
                     <Input
                       id="edit-g-name"
@@ -935,7 +953,7 @@ export const StudentsPage: React.FC = () => {
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="edit-g-rel" className="text-[11px]">
-                      সম্পর্ক
+                      {isEn ? 'Relationship' : 'সম্পর্ক'}
                     </Label>
                     <Input
                       id="edit-g-rel"
@@ -946,7 +964,7 @@ export const StudentsPage: React.FC = () => {
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="edit-g-phone" className="text-[11px]">
-                      মোবাইল নম্বর
+                      {t('student.profile.guardian_phone')}
                     </Label>
                     <Input
                       id="edit-g-phone"
@@ -965,21 +983,21 @@ export const StudentsPage: React.FC = () => {
                   size="sm"
                   onClick={() => setEditingStudent(null)}
                 >
-                  বাতিল
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   type="submit"
                   size="sm"
                   disabled={updateStudentMutation.isPending}
-                  className="bg-emerald-600 hover:bg-emerald-700"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   {updateStudentMutation.isPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                      <span>সংরক্ষণ হচ্ছে...</span>
+                      <span>{t('common.loading')}</span>
                     </>
                   ) : (
-                    <span>পরিবর্তন সংরক্ষণ করুন</span>
+                    <span>{t('common.save')}</span>
                   )}
                 </Button>
               </DialogFooter>

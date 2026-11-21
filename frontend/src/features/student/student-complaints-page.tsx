@@ -28,6 +28,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { apiClient } from '@/lib/api-client';
+import { formatDate, formatNumber } from '@/lib/formatters';
 
 export interface StudentComplaintItem {
   id: string;
@@ -93,7 +94,7 @@ export const StudentComplaintsPage: React.FC = () => {
       });
     },
     onError: (err: any) => {
-      setAddError(err.message || 'অভিযোগ জমা দেওয়া সম্ভব হয়নি');
+      setAddError(err.message || t('student.complaints.err_submit'));
     },
   });
 
@@ -121,6 +122,19 @@ export const StudentComplaintsPage: React.FC = () => {
     }
   };
 
+  const getPriorityLabel = (p: string) => {
+    switch (p) {
+      case 'URGENT':
+        return t('student.complaints.prio_urgent', 'Urgent');
+      case 'HIGH':
+        return t('student.complaints.prio_high', 'High');
+      case 'MEDIUM':
+        return t('student.complaints.prio_medium', 'Medium');
+      default:
+        return t('student.complaints.prio_low', 'Low');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -139,7 +153,7 @@ export const StudentComplaintsPage: React.FC = () => {
             setAddError(null);
             setAddModalOpen(true);
           }}
-          className="gap-2 shadow-xs self-start sm:self-auto bg-emerald-600 hover:bg-emerald-700"
+          className="gap-2 shadow-xs self-start sm:self-auto bg-emerald-600 hover:bg-emerald-700 text-white"
         >
           <Plus className="w-4 h-4" />
           <span>{t('student.complaints.btn_new')}</span>
@@ -149,14 +163,14 @@ export const StudentComplaintsPage: React.FC = () => {
       {/* Filter Tabs */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-slate-500 font-medium">স্ট্যাটাস অনুযায়ী:</span>
+          <span className="text-xs text-slate-500 font-medium">{t('student.complaints.filter_by_status', 'Filter by status:')}</span>
           <Button
             size="sm"
             variant={statusFilter === 'ALL' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('ALL')}
             className="text-xs rounded-full h-8"
           >
-            সকল অভিযোগ ({complaints.length})
+            {t('student.complaints.filter_all')} ({formatNumber(complaints.length)})
           </Button>
           <Button
             size="sm"
@@ -164,7 +178,7 @@ export const StudentComplaintsPage: React.FC = () => {
             onClick={() => setStatusFilter('PENDING')}
             className="text-xs rounded-full h-8"
           >
-            অপেক্ষমান ({complaints.filter((c) => c.status === 'PENDING').length})
+            {t('student.complaints.filter_pending')} ({formatNumber(complaints.filter((c) => c.status === 'PENDING').length)})
           </Button>
           <Button
             size="sm"
@@ -172,7 +186,7 @@ export const StudentComplaintsPage: React.FC = () => {
             onClick={() => setStatusFilter('IN_PROGRESS')}
             className="text-xs rounded-full h-8"
           >
-            প্রক্রিয়াধীন ({complaints.filter((c) => c.status === 'IN_PROGRESS').length})
+            {t('student.complaints.filter_in_progress')} ({formatNumber(complaints.filter((c) => c.status === 'IN_PROGRESS').length)})
           </Button>
           <Button
             size="sm"
@@ -180,7 +194,7 @@ export const StudentComplaintsPage: React.FC = () => {
             onClick={() => setStatusFilter('RESOLVED')}
             className="text-xs rounded-full h-8"
           >
-            সমাধানকৃত ({complaints.filter((c) => c.status === 'RESOLVED').length})
+            {t('student.complaints.filter_resolved')} ({formatNumber(complaints.filter((c) => c.status === 'RESOLVED').length)})
           </Button>
         </div>
       </div>
@@ -195,21 +209,21 @@ export const StudentComplaintsPage: React.FC = () => {
       ) : isError ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
-          <h3 className="text-lg font-bold text-slate-800">অভিযোগ লোড করা যায়নি</h3>
+          <h3 className="text-lg font-bold text-slate-800">{t('student.complaints.error_load')}</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            {(error as any)?.message || 'সার্ভার থেকে অভিযোগের তথ্য পাওয়া যায়নি।'}
+            {(error as any)?.message || t('common.error_occurred', 'An error occurred')}
           </p>
           <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
             <RefreshCw className="w-4 h-4" />
-            <span>পুনরায় চেষ্টা করুন</span>
+            <span>{t('common.retry')}</span>
           </Button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
           <FileText className="w-12 h-12 text-slate-300 mx-auto" />
-          <h4 className="text-base font-bold text-slate-800">কোনো অভিযোগ দাখিল করা হয়নি</h4>
+          <h4 className="text-base font-bold text-slate-800">{t('student.complaints.no_complaints')}</h4>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            আপনার রুম বা হোস্টেল চত্বরে কোনো সমস্যা থাকলে ওপরের "নতুন অভিযোগ দাখিল" বাটনে চাপুন।
+            {t('student.complaints.no_complaints_desc')}
           </p>
         </div>
       ) : (
@@ -226,13 +240,7 @@ export const StudentComplaintsPage: React.FC = () => {
                       item.priority
                     )}`}
                   >
-                    {item.priority === 'URGENT'
-                      ? 'জরুরি'
-                      : item.priority === 'HIGH'
-                      ? 'উচ্চ'
-                      : item.priority === 'MEDIUM'
-                      ? 'মাঝারি'
-                      : 'সাধারণ'}
+                    {getPriorityLabel(item.priority)}
                   </span>
                   <span className="text-xs font-mono font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
                     {item.category}
@@ -240,7 +248,7 @@ export const StudentComplaintsPage: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-slate-400">
-                    {new Date(item.createdAt).toLocaleDateString('bn-BD')}
+                    {formatDate(item.createdAt)}
                   </span>
                   <StatusBadge status={item.status} />
                 </div>
@@ -257,7 +265,7 @@ export const StudentComplaintsPage: React.FC = () => {
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
                   <span className="font-bold flex items-center gap-1.5 text-emerald-950">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>প্রশাসনিক সমাধান নোট:</span>
+                    <span>{t('student.complaints.admin_response')}</span>
                   </span>
                   <p className="text-emerald-800 leading-relaxed">{item.adminNote}</p>
                 </div>
@@ -268,8 +276,8 @@ export const StudentComplaintsPage: React.FC = () => {
                   <Clock className="w-3.5 h-3.5" />
                   <span>
                     {item.status === 'RESOLVED'
-                      ? `সমাধানের তারিখ: ${item.resolvedAt ? new Date(item.resolvedAt).toLocaleDateString('bn-BD') : ''}`
-                      : 'প্রক্রিয়া চলমান'}
+                      ? `${t('student.complaints.resolved_date', 'Resolved Date')}: ${item.resolvedAt ? formatDate(item.resolvedAt) : ''}`
+                      : t('status.in_progress', 'In Progress')}
                   </span>
                 </div>
                 <Button
@@ -279,7 +287,7 @@ export const StudentComplaintsPage: React.FC = () => {
                   className="h-7 text-xs text-emerald-700 gap-1 hover:text-emerald-800"
                 >
                   <Eye className="w-3.5 h-3.5" />
-                  <span>বিস্তারিত</span>
+                  <span>{t('common.details', 'Details')}</span>
                 </Button>
               </div>
             </div>
@@ -291,9 +299,9 @@ export const StudentComplaintsPage: React.FC = () => {
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>নতুন অভিযোগ দাখিল করুন</DialogTitle>
+            <DialogTitle>{t('student.complaints.modal_title')}</DialogTitle>
             <DialogDescription>
-              আপনার রুমের বা হোস্টেল চত্বরের সমস্যা সুনির্দিষ্টভাবে বর্ণনা করুন।
+              {t('student.complaints.modal_desc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -307,11 +315,11 @@ export const StudentComplaintsPage: React.FC = () => {
           <form onSubmit={handleAddSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="complaintTitle" className="text-xs font-semibold">
-                অভিযোগের শিরোনাম *
+                {t('student.complaints.title_field')} *
               </Label>
               <Input
                 id="complaintTitle"
-                placeholder="যেমন: সিলিং ফ্যানের রেগুলেটর সমস্যা"
+                placeholder={t('student.complaints.title_placeholder')}
                 value={newComplaint.title}
                 onChange={(e) => setNewComplaint({ ...newComplaint, title: e.target.value })}
                 required
@@ -321,7 +329,7 @@ export const StudentComplaintsPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="category" className="text-xs font-semibold">
-                  ক্যাটাগরি
+                  {t('student.complaints.category_field')}
                 </Label>
                 <select
                   id="category"
@@ -334,19 +342,19 @@ export const StudentComplaintsPage: React.FC = () => {
                   }
                   className="w-full text-xs h-9 rounded-md border border-slate-200 px-2.5 bg-white"
                 >
-                  <option value="PLUMBING">প্লাম্বিং ও ওয়াশরুম</option>
-                  <option value="ELECTRICAL">ইলেকট্রিক্যাল ও ফ্যান</option>
-                  <option value="CLEANING">পরিচ্ছন্নতা</option>
-                  <option value="WIFI">ইন্টারনেট ও ওয়াইফাই</option>
-                  <option value="DINING">ডাইনিং ও খাবার</option>
-                  <option value="FURNITURE">আসবাবপত্র</option>
-                  <option value="OTHER">অন্যান্য</option>
+                  <option value="PLUMBING">{t('student.complaints.cat_plumbing')}</option>
+                  <option value="ELECTRICAL">{t('student.complaints.cat_electrical')}</option>
+                  <option value="CLEANING">{t('student.complaints.cat_cleaning')}</option>
+                  <option value="WIFI">{t('student.complaints.cat_internet')}</option>
+                  <option value="DINING">{t('student.complaints.cat_dining', 'Dining & Food')}</option>
+                  <option value="FURNITURE">{t('student.complaints.cat_furniture')}</option>
+                  <option value="OTHER">{t('student.complaints.cat_other')}</option>
                 </select>
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="priority" className="text-xs font-semibold">
-                  জরুরিতা / প্রায়োরিটি
+                  {t('student.complaints.priority_field')}
                 </Label>
                 <select
                   id="priority"
@@ -359,22 +367,22 @@ export const StudentComplaintsPage: React.FC = () => {
                   }
                   className="w-full text-xs h-9 rounded-md border border-slate-200 px-2.5 bg-white"
                 >
-                  <option value="LOW">সাধারণ (Low)</option>
-                  <option value="MEDIUM">মাঝারি (Medium)</option>
-                  <option value="HIGH">জরুরি (High)</option>
-                  <option value="URGENT">অত্যন্ত জরুরি (Urgent)</option>
+                  <option value="LOW">{t('student.complaints.prio_low')}</option>
+                  <option value="MEDIUM">{t('student.complaints.prio_medium')}</option>
+                  <option value="HIGH">{t('student.complaints.prio_high')}</option>
+                  <option value="URGENT">{t('student.complaints.prio_urgent', 'Urgent')}</option>
                 </select>
               </div>
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="desc" className="text-xs font-semibold">
-                সমস্যার বিস্তারিত বিবরণ *
+                {t('student.complaints.desc_field')} *
               </Label>
               <Textarea
                 id="desc"
                 rows={3}
-                placeholder="সমস্যাটি কখন থেকে হচ্ছে এবং সমাধানের প্রয়োজনীয়তা বিস্তারিত লিখুন..."
+                placeholder={t('student.complaints.desc_placeholder')}
                 value={newComplaint.description}
                 onChange={(e) => setNewComplaint({ ...newComplaint, description: e.target.value })}
                 required
@@ -388,20 +396,20 @@ export const StudentComplaintsPage: React.FC = () => {
                 className="w-full sm:w-auto"
                 onClick={() => setAddModalOpen(false)}
               >
-                বাতিল
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
                 disabled={addComplaintMutation.isPending}
-                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {addComplaintMutation.isPending ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                    <span>জমা হচ্ছে...</span>
+                    <span>{t('student.complaints.submitting')}</span>
                   </>
                 ) : (
-                  <span>অভিযোগ জমা দিন</span>
+                  <span>{t('student.complaints.submit_btn')}</span>
                 )}
               </Button>
             </DialogFooter>
@@ -420,19 +428,19 @@ export const StudentComplaintsPage: React.FC = () => {
               </div>
               <DialogTitle className="text-base">{viewComplaint.title}</DialogTitle>
               <DialogDescription>
-                দাখিলের তারিখ: {new Date(viewComplaint.createdAt).toLocaleDateString('bn-BD')}
+                {t('student.complaints.card_submitted')} {formatDate(viewComplaint.createdAt)}
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-2 text-xs text-slate-700">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                <span className="font-bold text-slate-900 block">বিবরণ:</span>
+                <span className="font-bold text-slate-900 block">{t('common.description', 'Description')}:</span>
                 <p className="leading-relaxed text-slate-600 whitespace-pre-line">{viewComplaint.description}</p>
               </div>
 
               {viewComplaint.adminNote && (
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-1">
-                  <span className="font-bold text-emerald-900 block">কর্তৃপক্ষের নোট:</span>
+                  <span className="font-bold text-emerald-900 block">{t('student.complaints.admin_response')}</span>
                   <p className="leading-relaxed text-emerald-800">{viewComplaint.adminNote}</p>
                 </div>
               )}
@@ -440,7 +448,7 @@ export const StudentComplaintsPage: React.FC = () => {
 
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={() => setViewComplaint(null)}>
-                বন্ধ করুন
+                {t('common.close')}
               </Button>
             </DialogFooter>
           </DialogContent>

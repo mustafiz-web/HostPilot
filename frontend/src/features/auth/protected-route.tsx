@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { useAuth } from './auth-context';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) => {
+  const { t } = useTranslation();
   const { user, isAuthenticated, isLoading, role } = useAuth();
   const location = useLocation();
 
@@ -16,7 +18,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) 
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-3">
         <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
-        <p className="text-sm font-medium text-slate-600">সার্ভার যাচাইকরণ চলছে (Verifying authentication)...</p>
+        <p className="text-sm font-medium text-slate-600">{t('auth.verifying_server', 'Verifying authentication...')}</p>
       </div>
     );
   }
@@ -33,16 +35,19 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ requiredRole }) 
           <div className="w-16 h-16 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center mb-4">
             <ShieldAlert className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">অ্যাক্সেস সংরক্ষিত (Access Denied)</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('auth.access_denied', 'Access Denied')}</h2>
           <p className="text-sm text-slate-600 max-w-md mb-6">
-            এই পৃষ্ঠাটি শুধুমাত্র হোস্টেল অ্যাডমিনিস্ট্রেটরের জন্য সংরক্ষিত। শিক্ষার্থীরা শুধুমাত্র নিজস্ব প্যানেল ব্যবহার করতে পারবেন।
+            {t(
+              'auth.access_denied_desc',
+              'This area is restricted to hostel administrators. Students may only access their personal dashboard.'
+            )}
           </p>
           <div className="flex gap-3">
             <Button onClick={() => window.location.href = '/student'} className="bg-emerald-600 hover:bg-emerald-700">
-              শিক্ষার্থী ড্যাশবোর্ডে যান
+              {t('auth.go_student_dashboard', 'Go to Student Dashboard')}
             </Button>
             <Button variant="outline" onClick={() => window.location.href = '/'}>
-              মূল ওয়েবসাইট
+              {t('auth.back_to_site', 'Main Website')}
             </Button>
           </div>
         </div>

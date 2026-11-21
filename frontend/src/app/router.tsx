@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { PublicLayout } from '@/layouts/public-layout';
 import { AdminLayout } from '@/layouts/admin-layout';
 import { StudentLayout } from '@/layouts/student-layout';
@@ -37,6 +38,19 @@ import { StudentComplaintsPage } from '@/features/student/student-complaints-pag
 import { StudentNoticesPage } from '@/features/student/student-notices-page';
 import { StudentRulesPage } from '@/features/student/student-rules-page';
 import { StudentSecurityPage } from '@/features/student/student-security-page';
+
+const NotFoundPage: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center">
+      <h1 className="text-4xl font-bold text-gray-900 mb-2">{t('common.error_404_title')}</h1>
+      <p className="text-gray-600 mb-4">{t('common.error_404_msg')}</p>
+      <a href="/" className="px-4 py-2 bg-emerald-600 text-white rounded-md text-sm font-medium">
+        {t('common.error_404_btn')}
+      </a>
+    </div>
+  );
+};
 
 export const router = createBrowserRouter([
   // Public Routes Shell
@@ -194,14 +208,6 @@ export const router = createBrowserRouter([
   // Fallback Route
   {
     path: '*',
-    element: (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">৪০৪</h1>
-        <p className="text-gray-600 mb-4">পৃষ্ঠাটি খুঁজে পাওয়া যায়নি</p>
-        <a href="/" className="px-4 py-2 bg-emerald-600 text-white rounded-md text-sm font-medium">
-          হোমে ফিরে যান
-        </a>
-      </div>
-    ),
+    element: <NotFoundPage />,
   },
 ]);

@@ -35,6 +35,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 
 interface RealPayment {
   id: string;
@@ -85,7 +86,7 @@ interface StudentDashboardData {
 }
 
 export const StudentPaymentsPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
 
   const [receiptTarget, setReceiptTarget] = useState<RealPayment | null>(null);
@@ -93,7 +94,7 @@ export const StudentPaymentsPage: React.FC = () => {
   const [payError, setPayError] = useState<string | null>(null);
 
   const [paymentForm, setPaymentForm] = useState({
-    billingPeriod: new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+    billingPeriod: new Date().toLocaleString(i18n.language.startsWith('en') ? 'en-US' : 'bn-BD', { month: 'long', year: 'numeric' }),
     amount: '',
     paymentMethod: 'BKASH' as 'CASH' | 'BANK_TRANSFER' | 'BKASH' | 'NAGAD',
     senderPhone: '',
@@ -154,7 +155,7 @@ export const StudentPaymentsPage: React.FC = () => {
       setPayModalOpen(false);
       setPayError(null);
       setPaymentForm({
-        billingPeriod: new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+        billingPeriod: new Date().toLocaleString(i18n.language.startsWith('en') ? 'en-US' : 'bn-BD', { month: 'long', year: 'numeric' }),
         amount: '',
         paymentMethod: 'BKASH',
         senderPhone: '',
@@ -165,7 +166,7 @@ export const StudentPaymentsPage: React.FC = () => {
       const msg =
         err?.response?.data?.error?.message ||
         err?.response?.data?.message ||
-        'পেমেন্ট সম্পন্ন করা সম্ভব হয়নি। অনুগ্রহ করে পুনরায় চেষ্টা করুন।';
+        t('student.payments.err_payment_failed');
       setPayError(msg);
     },
   });
@@ -175,7 +176,7 @@ export const StudentPaymentsPage: React.FC = () => {
     setPayError(null);
     const amountNum = Number(paymentForm.amount || allocation?.monthlyRent || 0);
     if (!amountNum || amountNum <= 0) {
-      setPayError('অনুগ্রহ করে সঠিক টাকার পরিমাণ উল্লেখ করুন');
+      setPayError(t('student.payments.err_invalid_amount'));
       return;
     }
 
@@ -190,7 +191,7 @@ export const StudentPaymentsPage: React.FC = () => {
 
   const openPayModalWithPeriod = (period?: string, defaultAmt?: number) => {
     setPaymentForm({
-      billingPeriod: period || new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+      billingPeriod: period || new Date().toLocaleString(i18n.language.startsWith('en') ? 'en-US' : 'bn-BD', { month: 'long', year: 'numeric' }),
       amount: defaultAmt ? String(defaultAmt) : allocation?.monthlyRent ? String(allocation.monthlyRent) : '',
       paymentMethod: 'BKASH',
       senderPhone: profile?.phone || '',
@@ -221,14 +222,14 @@ export const StudentPaymentsPage: React.FC = () => {
             className="gap-1.5 text-xs text-slate-700"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>রিফ্রেশ</span>
+            <span>{t('common.refresh')}</span>
           </Button>
           <Button
             onClick={() => openPayModalWithPeriod()}
             className="gap-2 shadow-xs self-start sm:self-auto bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             <Plus className="w-4 h-4" />
-            <span>অনলাইন ফি পরিশোধ</span>
+            <span>{t('student.payments.online_payment')}</span>
           </Button>
         </div>
       </div>
@@ -236,32 +237,34 @@ export const StudentPaymentsPage: React.FC = () => {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-2">
-          <span className="text-xs font-bold uppercase text-slate-400">সর্বমোট পরিশোধিত</span>
+          <span className="text-xs font-bold uppercase text-slate-400">{t('student.payments.total_paid')}</span>
           <div className="text-2xl font-black text-emerald-700">
-            ৳ {totalPaid.toLocaleString()}
+            {formatCurrency(totalPaid)}
           </div>
-          <p className="text-xs text-slate-500">চলতি সেশনে পরিশোধকৃত ফি</p>
+          <p className="text-xs text-slate-500">{t('student.payments.paid_in_current_session')}</p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-2">
-          <span className="text-xs font-bold uppercase text-slate-400">বর্তমান বকেয়া ফি</span>
+          <span className="text-xs font-bold uppercase text-slate-400">{t('student.payments.current_due')}</span>
           <div className={`text-2xl font-black ${dueAmount > 0 ? 'text-amber-600' : 'text-slate-700'}`}>
-            ৳ {dueAmount.toLocaleString()}
+            {formatCurrency(dueAmount)}
           </div>
           <p className="text-xs text-slate-500">
-            {duePayment ? `${duePayment.billingPeriod} এর বকেয়া` : 'কোনো বকেয়া নেই'}
+            {duePayment
+              ? t('student.payments.due_for', { period: duePayment.billingPeriod })
+              : t('student.payments.no_due')}
           </p>
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-2">
-          <span className="text-xs font-bold uppercase text-slate-400">মাসিক নির্ধারিত ভাড়া</span>
+          <span className="text-xs font-bold uppercase text-slate-400">{t('student.payments.monthly_rent')}</span>
           <div className="text-2xl font-black text-slate-900">
-            ৳ {allocation?.monthlyRent ? Number(allocation.monthlyRent).toLocaleString() : '০'}
+            {formatCurrency(allocation?.monthlyRent || 0)}
           </div>
           <p className="text-xs text-slate-500">
             {allocation
-              ? `রুম ${allocation.roomNumber} (বেড ${allocation.bedCode}) • প্রতি মাসের ১০ তারিখের মধ্যে প্রদেয়`
-              : 'সিট বরাদ্দ সক্রিয় নেই'}
+              ? t('student.payments.room_rent_note', { room: allocation.roomNumber, bed: allocation.bedCode })
+              : t('student.payments.no_allocation')}
           </p>
         </div>
       </div>
@@ -271,9 +274,11 @@ export const StudentPaymentsPage: React.FC = () => {
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Receipt className="w-5 h-5 text-emerald-600" />
-            <h3 className="font-bold text-base text-slate-900">ভাড়া পরিশোধের ইতিহাস</h3>
+            <h3 className="font-bold text-base text-slate-900">{t('student.payments.payment_history')}</h3>
           </div>
-          <span className="text-xs text-slate-500">সর্বমোট {payments.length} টি রেকর্ড</span>
+          <span className="text-xs text-slate-500">
+            {t('common.total_count', { count: payments.length })}
+          </span>
         </div>
 
         {isLoadingPayments ? (
@@ -285,30 +290,30 @@ export const StudentPaymentsPage: React.FC = () => {
         ) : isErrorPayments ? (
           <div className="p-8 text-center space-y-3">
             <AlertCircle className="w-10 h-10 text-red-500 mx-auto" />
-            <p className="text-sm font-semibold text-slate-700">পেমেন্ট হিস্ট্রি লোড করতে সমস্যা হয়েছে</p>
+            <p className="text-sm font-semibold text-slate-700">{t('student.payments.error_loading')}</p>
             <Button variant="outline" size="sm" onClick={() => refetchPayments()}>
-              আবার চেষ্টা করুন
+              {t('common.retry')}
             </Button>
           </div>
         ) : payments.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <Receipt className="w-12 h-12 text-slate-300 mx-auto" />
-            <p className="text-sm font-semibold text-slate-700">এখনও কোনো পেমেন্ট রেকর্ড নেই</p>
-            <p className="text-xs text-slate-400">আপনার পরিশোধিত বা বকেয়া ফি এখানে প্রদর্শিত হবে।</p>
+            <p className="text-sm font-semibold text-slate-700">{t('student.payments.no_records')}</p>
+            <p className="text-xs text-slate-400">{t('student.payments.no_records_desc')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>রশিদ / ইনভয়েস নং</TableHead>
-                  <TableHead>বিলিং সময়কাল</TableHead>
-                  <TableHead>নির্ধারিত ভাড়া</TableHead>
-                  <TableHead>পরিশোধিত টাকা</TableHead>
-                  <TableHead>পেমেন্ট মাধ্যম</TableHead>
-                  <TableHead>পরিশোধের তারিখ</TableHead>
-                  <TableHead>স্ট্যাটাস</TableHead>
-                  <TableHead className="text-right">অ্যাকশন</TableHead>
+                  <TableHead>{t('student.payments.th_receipt_no')}</TableHead>
+                  <TableHead>{t('student.payments.th_billing_period')}</TableHead>
+                  <TableHead>{t('student.payments.th_monthly_rent')}</TableHead>
+                  <TableHead>{t('student.payments.th_paid_amount')}</TableHead>
+                  <TableHead>{t('student.payments.th_method')}</TableHead>
+                  <TableHead>{t('student.payments.th_paid_date')}</TableHead>
+                  <TableHead>{t('student.payments.th_status')}</TableHead>
+                  <TableHead className="text-right">{t('common.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -321,10 +326,10 @@ export const StudentPaymentsPage: React.FC = () => {
                       {inv.billingPeriod}
                     </TableCell>
                     <TableCell className="text-xs font-semibold text-slate-800">
-                      ৳ {Number(inv.amount).toLocaleString()}
+                      {formatCurrency(Number(inv.amount))}
                     </TableCell>
                     <TableCell className="text-xs font-extrabold text-emerald-700">
-                      ৳ {Number(inv.paidAmount).toLocaleString()}
+                      {formatCurrency(Number(inv.paidAmount))}
                     </TableCell>
                     <TableCell className="text-xs">
                       {inv.paymentMethod ? (
@@ -336,13 +341,7 @@ export const StudentPaymentsPage: React.FC = () => {
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-slate-500">
-                      {inv.paidAt
-                        ? new Date(inv.paidAt).toLocaleDateString('bn-BD', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })
-                        : 'অপেক্ষমান'}
+                      {inv.paidAt ? formatDate(inv.paidAt) : t('student.payments.pending_status')}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={inv.status} />
@@ -356,7 +355,7 @@ export const StudentPaymentsPage: React.FC = () => {
                           className="h-8 px-2.5 text-xs text-slate-700 gap-1 hover:text-emerald-700"
                         >
                           <Receipt className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>রসিদ দেখুন</span>
+                          <span>{t('student.payments.view_receipt')}</span>
                         </Button>
                       ) : (
                         <Button
@@ -369,7 +368,7 @@ export const StudentPaymentsPage: React.FC = () => {
                           }
                           className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
                         >
-                          <span>এখন পে করুন</span>
+                          <span>{t('student.payments.pay_now')}</span>
                         </Button>
                       )}
                     </TableCell>
@@ -387,23 +386,27 @@ export const StudentPaymentsPage: React.FC = () => {
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center justify-between border-b pb-3">
-                <span className="text-emerald-700 font-bold">হোস্টেল ফি আদায় রসিদ (Official Receipt)</span>
+                <span className="text-emerald-700 font-bold">{t('student.payments.receipt_title')}</span>
                 <span className="text-xs font-mono text-slate-400">{receiptTarget.receiptNumber}</span>
               </DialogTitle>
               <DialogDescription>
-                Host Pilot অনুমোদিত ডিজিটাল পেমেন্ট স্বীকৃতি
+                {t('student.payments.receipt_subtitle')}
               </DialogDescription>
             </DialogHeader>
 
             <div className="p-4 bg-slate-50/60 rounded-xl border border-slate-200/80 space-y-4 text-xs">
               <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div>
-                  <h4 className="font-bold text-sm text-slate-900">{profile?.name || receiptTarget.student?.user?.name || 'শিক্ষার্থী'}</h4>
-                  <p className="text-slate-500 font-mono">আইডি: {profile?.studentCode || receiptTarget.student?.studentCode || 'N/A'} • ডিপার্টমেন্ট: {profile?.department || receiptTarget.student?.department || 'N/A'}</p>
+                  <h4 className="font-bold text-sm text-slate-900">{profile?.name || receiptTarget.student?.user?.name || t('student.payments.student_lbl')}</h4>
+                  <p className="text-slate-500 font-mono">
+                    {t('student.payments.id_lbl')}: {profile?.studentCode || receiptTarget.student?.studentCode || 'N/A'} • {t('student.payments.dept_lbl')}: {profile?.department || receiptTarget.student?.department || 'N/A'}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="font-bold text-slate-800">
-                    {allocation ? `রুম ${allocation.roomNumber} (বেড ${allocation.bedCode})` : 'হোস্টেল সীট'}
+                    {allocation
+                      ? `${t('student.room.room_number', { number: allocation.roomNumber })} (${t('student.room.bed')} ${allocation.bedCode})`
+                      : t('student.payments.hostel_seat')}
                   </p>
                   <p className="text-slate-400">Host Pilot Residence</p>
                 </div>
@@ -411,33 +414,33 @@ export const StudentPaymentsPage: React.FC = () => {
 
               <div className="space-y-2">
                 <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-500">বিলিং সময়কাল:</span>
+                  <span className="text-slate-500">{t('student.payments.billing_period_lbl')}</span>
                   <span className="font-bold text-slate-800">{receiptTarget.billingPeriod}</span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-500">পরিশোধের তারিখ:</span>
+                  <span className="text-slate-500">{t('student.payments.payment_date_lbl')}</span>
                   <span className="font-mono text-slate-800">
-                    {receiptTarget.paidAt ? new Date(receiptTarget.paidAt).toLocaleString() : 'N/A'}
+                    {receiptTarget.paidAt ? formatDate(receiptTarget.paidAt) : 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-500">পেমেন্ট মেথড:</span>
+                  <span className="text-slate-500">{t('student.payments.payment_method_lbl')}</span>
                   <span className="font-mono font-bold text-slate-800">{receiptTarget.paymentMethod}</span>
                 </div>
                 {receiptTarget.transactionReference && (
                   <div className="flex justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-500">ট্রানজেকশন আইডি (TrxID):</span>
+                    <span className="text-slate-500">{t('student.payments.trx_lbl')}</span>
                     <span className="font-mono font-bold text-emerald-800">{receiptTarget.transactionReference}</span>
                   </div>
                 )}
                 <div className="flex justify-between py-2 text-sm font-extrabold text-slate-900 bg-emerald-50/60 px-3 rounded-lg border border-emerald-100">
-                  <span>সর্বমোট আদায়কৃত টাকা:</span>
-                  <span className="text-emerald-700">৳ {Number(receiptTarget.paidAmount).toLocaleString()}</span>
+                  <span>{t('student.payments.total_collected')}</span>
+                  <span className="text-emerald-700">{formatCurrency(Number(receiptTarget.paidAmount))}</span>
                 </div>
               </div>
 
               <div className="p-2.5 bg-emerald-100/60 text-emerald-900 rounded-lg text-center font-bold text-xs">
-                ✓ পেমেন্ট অনুমোদিত ও ডাটাবেজে সংরক্ষিত (PAID & VERIFIED)
+                {t('student.payments.verified_notice')}
               </div>
             </div>
 
@@ -447,15 +450,15 @@ export const StudentPaymentsPage: React.FC = () => {
                 size="sm"
                 onClick={() => setReceiptTarget(null)}
               >
-                বন্ধ করুন
+                {t('common.close')}
               </Button>
               <Button
                 size="sm"
                 onClick={() => window.print()}
-                className="gap-1.5 bg-emerald-700 hover:bg-emerald-800"
+                className="gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white"
               >
                 <Printer className="w-4 h-4" />
-                <span>রসিদ প্রিন্ট করুন</span>
+                <span>{t('student.payments.print_receipt')}</span>
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -466,9 +469,9 @@ export const StudentPaymentsPage: React.FC = () => {
       <Dialog open={payModalOpen} onOpenChange={setPayModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>অনলাইন ফি পরিশোধ (Pay Hostel Rent)</DialogTitle>
+            <DialogTitle>{t('student.payments.pay_modal_title')}</DialogTitle>
             <DialogDescription>
-              বিকাশ, নগদ বা ব্যাংক ট্রান্সফারের মাধ্যমে সিট ভাড়া পরিশোধ নিশ্চিত করুন।
+              {t('student.payments.pay_modal_desc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -482,7 +485,7 @@ export const StudentPaymentsPage: React.FC = () => {
           <form onSubmit={handlePaySubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="billingPeriod" className="text-xs font-semibold">
-                বিলিং সময়কাল (মাস/বছর)
+                {t('student.payments.billing_period_field')}
               </Label>
               <Input
                 id="billingPeriod"
@@ -494,7 +497,7 @@ export const StudentPaymentsPage: React.FC = () => {
 
             <div className="space-y-1.5">
               <Label htmlFor="amount" className="text-xs font-semibold">
-                পরিশোধের পরিমাণ (টাকা)
+                {t('student.payments.amount_field')}
               </Label>
               <Input
                 id="amount"
@@ -507,7 +510,7 @@ export const StudentPaymentsPage: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">পেমেন্ট মেথড নির্বাচন করুন</Label>
+              <Label className="text-xs font-semibold">{t('student.payments.select_method')}</Label>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
@@ -550,11 +553,11 @@ export const StudentPaymentsPage: React.FC = () => {
 
             <div className="space-y-1.5">
               <Label htmlFor="senderPhone" className="text-xs font-semibold">
-                প্রেরকের মোবাইল নম্বর
+                {t('student.payments.sender_phone')}
               </Label>
               <Input
                 id="senderPhone"
-                placeholder="০১৭১১-XXXXXX"
+                placeholder="01711-XXXXXX"
                 value={paymentForm.senderPhone}
                 onChange={(e) => setPaymentForm({ ...paymentForm, senderPhone: e.target.value })}
               />
@@ -562,11 +565,11 @@ export const StudentPaymentsPage: React.FC = () => {
 
             <div className="space-y-1.5">
               <Label htmlFor="trxId" className="text-xs font-semibold">
-                ট্রানজেকশন আইডি (TrxID)
+                {t('student.payments.trx_id_field')}
               </Label>
               <Input
                 id="trxId"
-                placeholder="যেমন: BK9X274LAQ"
+                placeholder={t('student.payments.trx_placeholder')}
                 value={paymentForm.transactionReference}
                 onChange={(e) => setPaymentForm({ ...paymentForm, transactionReference: e.target.value })}
                 required
@@ -580,16 +583,16 @@ export const StudentPaymentsPage: React.FC = () => {
                 disabled={payFeeMutation.isPending}
                 onClick={() => setPayModalOpen(false)}
               >
-                বাতিল
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={payFeeMutation.isPending}>
                 {payFeeMutation.isPending ? (
                   <span className="flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>প্রক্রিয়াধীন...</span>
+                    <span>{t('student.payments.processing')}</span>
                   </span>
                 ) : (
-                  'পেমেন্ট নিশ্চিত করুন'
+                  t('student.payments.confirm_payment')
                 )}
               </Button>
             </DialogFooter>

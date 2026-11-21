@@ -4,13 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   CreditCard,
   Plus,
-  Search,
   Receipt,
   Printer,
+  Search,
   AlertCircle,
   Loader2,
   RefreshCw,
-  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,15 +34,16 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency, formatNumber } from '@/lib/formatters';
 
-export interface PaymentItem {
+interface PaymentItem {
   id: string;
   studentId: string;
   billingPeriod: string;
   amount: number;
   paidAmount: number;
   status: 'PAID' | 'PARTIAL' | 'DUE';
-  paymentMethod?: 'CASH' | 'BANK_TRANSFER' | 'BKASH' | 'NAGAD' | null;
+  paymentMethod: 'CASH' | 'BANK_TRANSFER' | 'BKASH' | 'NAGAD';
   receiptNumber: string;
   transactionReference?: string | null;
   paidAt?: string | null;
@@ -51,39 +51,48 @@ export interface PaymentItem {
   student?: {
     id: string;
     studentCode: string;
-    rollNumber: string;
     department: string;
+    rollNumber: string;
     user?: {
       name: string;
       email: string;
     };
   };
-  recordedByUser?: {
+}
+
+interface StudentOption {
+  id: string;
+  studentCode: string;
+  department: string;
+  rollNumber: string;
+  user: {
     name: string;
     email: string;
-  } | null;
+  };
 }
 
 export const PaymentsPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language?.startsWith('en');
   const queryClient = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'DUE' | 'PARTIAL'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'DUE' | 'PARTIAL'>('ALL');
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [receiptTarget, setReceiptTarget] = useState<PaymentItem | null>(null);
 
-  const [newPay, setNewPay] = useState({
+  // Form State: New Payment
+  const [newPayment, setNewPayment] = useState({
     studentId: '',
-    billingPeriod: 'নভেম্বর ২০২৬',
-    amount: '4500',
-    paidAmount: '4500',
+    billingPeriod: new Date().toLocaleString(isEn ? 'en-US' : 'bn-BD', { month: 'long', year: 'numeric' }),
+    amount: '',
+    paidAmount: '',
     paymentMethod: 'BKASH' as 'CASH' | 'BANK_TRANSFER' | 'BKASH' | 'NAGAD',
     transactionReference: '',
   });
 
-  // Query: Fetch all payments from real MySQL API
+  // Query: Payments List
   const {
     data: paymentsResponse,
     isLoading,
@@ -91,38 +100,44 @@ export const PaymentsPage: React.FC = () => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['admin-payments'],
+    queryKey: ['admin-payments', { status: statusFilter }],
     queryFn: async () => {
-      const res = await apiClient.get<PaymentItem[]>('/payments');
+      const res = await apiClient.get<PaymentItem[]>('/payments', {
+        status: statusFilter === 'ALL' ? undefined : statusFilter,
+      });
       return res;
     },
     staleTime: 30 * 1000,
   });
 
-  const payments: PaymentItem[] = paymentsResponse?.data || [];
-
-  // Query: Active Students for payment dropdown
+  // Query: Active Students for dropdown
   const { data: studentsResponse } = useQuery({
-    queryKey: ['admin-students-dropdown'],
+    queryKey: ['students-for-payment-recording'],
     queryFn: async () => {
-      const res = await apiClient.get<any>('/students', { limit: 100 });
+      const res = await apiClient.get<StudentOption[]>('/students', { limit: 100, status: 'ACTIVE' });
       return res.data;
     },
-    staleTime: 60 * 1000,
+    enabled: addModalOpen,
   });
 
-  const studentsList: any[] = studentsResponse || [];
+  const payments = paymentsResponse?.data || [];
+  const students = studentsResponse || [];
 
-  // Mutation: Record Payment
-  const recordPaymentMutation = useMutation({
-    mutationFn: async (payload: {
-      studentId: string;
-      billingPeriod: string;
-      amount: number;
-      paidAmount: number;
-      paymentMethod: string;
-      transactionReference?: string;
-    }) => {
+  // Filtered List
+  const filtered = payments.filter((p) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      p.receiptNumber?.toLowerCase().includes(term) ||
+      p.student?.user?.name?.toLowerCase().includes(term) ||
+      p.student?.studentCode?.toLowerCase().includes(term) ||
+      p.billingPeriod?.toLowerCase().includes(term)
+    );
+  });
+
+  // Mutation: Record payment
+  const addPaymentMutation = useMutation({
+    mutationFn: async (payload: any) => {
       const res = await apiClient.post<PaymentItem>('/payments', payload);
       return res.data;
     },
@@ -131,55 +146,43 @@ export const PaymentsPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-metrics'] });
       setAddModalOpen(false);
       setAddError(null);
-      setNewPay({
+      setNewPayment({
         studentId: '',
-        billingPeriod: 'নভেম্বর ২০২৬',
-        amount: '4500',
-        paidAmount: '4500',
+        billingPeriod: new Date().toLocaleString(isEn ? 'en-US' : 'bn-BD', { month: 'long', year: 'numeric' }),
+        amount: '',
+        paidAmount: '',
         paymentMethod: 'BKASH',
         transactionReference: '',
       });
     },
     onError: (err: any) => {
-      setAddError(err.message || 'পেমেন্ট রেকর্ড করতে সমস্যা হয়েছে');
+      setAddError(err.message || t('common.error_occurred'));
     },
   });
 
-  const handleRecordPayment = (e: React.FormEvent) => {
+  const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPay.studentId) {
-      setAddError('অনুগ্রহ করে একজন শিক্ষার্থী নির্বাচন করুন');
+    if (!newPayment.studentId) {
+      setAddError(isEn ? 'Please select a student' : 'অনুগ্রহ করে একজন শিক্ষার্থী নির্বাচন করুন');
       return;
     }
     setAddError(null);
-    recordPaymentMutation.mutate({
-      studentId: newPay.studentId,
-      billingPeriod: newPay.billingPeriod,
-      amount: Number(newPay.amount),
-      paidAmount: Number(newPay.paidAmount),
-      paymentMethod: newPay.paymentMethod,
-      transactionReference: newPay.transactionReference || undefined,
+    addPaymentMutation.mutate({
+      studentId: newPayment.studentId,
+      billingPeriod: newPayment.billingPeriod,
+      amount: Number(newPayment.amount),
+      paidAmount: Number(newPayment.paidAmount),
+      paymentMethod: newPayment.paymentMethod,
+      transactionReference: newPayment.transactionReference.trim() || undefined,
     });
   };
 
-  const filtered = payments.filter((p) => {
-    const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
-    const term = searchTerm.toLowerCase().trim();
-    const studentName = p.student?.user?.name?.toLowerCase() || '';
-    const studentCode = p.student?.studentCode?.toLowerCase() || '';
-    const receipt = p.receiptNumber.toLowerCase();
-    const matchesSearch =
-      !term ||
-      studentName.includes(term) ||
-      studentCode.includes(term) ||
-      receipt.includes(term);
-    return matchesStatus && matchesSearch;
-  });
-
-  const totalCollected = payments.reduce((sum, item) => sum + Number(item.paidAmount || 0), 0);
-  const totalDue = payments
-    .filter((p) => p.status === 'DUE' || p.status === 'PARTIAL')
-    .reduce((sum, item) => sum + (Number(item.amount) - Number(item.paidAmount || 0)), 0);
+  // Financial aggregates
+  const totalCollected = payments.reduce((sum, p) => sum + Number(p.paidAmount || 0), 0);
+  const totalDue = payments.reduce(
+    (sum, p) => sum + Math.max(0, Number(p.amount || 0) - Number(p.paidAmount || 0)),
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -194,51 +197,70 @@ export const PaymentsPage: React.FC = () => {
             {t('admin.payments.subtitle')}
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setAddError(null);
-            setAddModalOpen(true);
-          }}
-          className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{t('admin.payments.btn_record_payment')}</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            className="gap-1.5 text-xs text-slate-700"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>{t('common.refresh')}</span>
+          </Button>
+          <Button
+            onClick={() => {
+              setAddError(null);
+              setAddModalOpen(true);
+            }}
+            className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t('admin.payments.btn_record_payment')}</span>
+          </Button>
+        </div>
       </div>
 
-      {/* Financial Summary Strip */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-          <span className="text-xs text-slate-500 font-semibold uppercase">{t('admin.payments.stat_total_collection')}</span>
-          <div className="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1">
-            ৳ {totalCollected.toLocaleString()}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-2">
+          <span className="text-xs font-bold uppercase text-slate-400">
+            {t('admin.payments.stat_total_collected')}
+          </span>
+          <div className="text-2xl font-black text-emerald-700">
+            {formatCurrency(totalCollected)}
           </div>
-          <span className="text-xs text-slate-400">মোট আদায়কৃত অর্থ ({payments.length} টি রসিদ)</span>
+          <span className="text-xs text-slate-400">
+            {t('common.total_count', { count: payments.length })}
+          </span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-          <span className="text-xs text-slate-500 font-semibold uppercase">{t('admin.payments.stat_total_due')}</span>
-          <div className="text-2xl sm:text-3xl font-extrabold text-rose-600 mt-1">
-            ৳ {totalDue.toLocaleString()}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-2">
+          <span className="text-xs font-bold uppercase text-slate-400">
+            {t('admin.payments.stat_total_due')}
+          </span>
+          <div className="text-2xl font-black text-amber-600">
+            {formatCurrency(totalDue)}
           </div>
-          <span className="text-xs text-slate-400">বকেয়া বিলিং পরিমাণ</span>
+          <span className="text-xs text-slate-400">{t('admin.reports.financial_summary')}</span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-          <span className="text-xs text-slate-500 font-semibold uppercase">{t('admin.payments.stat_active_invoices')}</span>
-          <div className="text-2xl sm:text-3xl font-extrabold text-blue-600 mt-1">
-            {payments.filter((p) => p.status === 'PAID').length} টি
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-2">
+          <span className="text-xs font-bold uppercase text-slate-400">
+            {t('status.paid')}
+          </span>
+          <div className="text-2xl font-black text-slate-900">
+            {formatNumber(payments.filter((p) => p.status === 'PAID').length)}
           </div>
-          <span className="text-xs text-slate-400">পরিশোধিত সফল ভাউচার</span>
+          <span className="text-xs text-slate-400">{t('student.payments.paid_in_current_session')}</span>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
+      {/* Search and Filters */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <Input
-            placeholder="রসিদ নং বা শিক্ষার্থীর নাম দিয়ে খুঁজুন..."
+            placeholder={t('admin.payments.search_placeholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 h-9 text-xs sm:text-sm"
@@ -246,14 +268,14 @@ export const PaymentsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs text-slate-500 font-medium">স্ট্যাটাস:</span>
+          <span className="text-xs text-slate-500 font-medium">{t('common.status')}:</span>
           <Button
             size="sm"
             variant={statusFilter === 'ALL' ? 'default' : 'outline'}
             onClick={() => setStatusFilter('ALL')}
             className="text-xs rounded-full h-8"
           >
-            সব ({payments.length})
+            {t('common.all')} ({formatNumber(payments.length)})
           </Button>
           <Button
             size="sm"
@@ -261,7 +283,7 @@ export const PaymentsPage: React.FC = () => {
             onClick={() => setStatusFilter('PAID')}
             className="text-xs rounded-full h-8"
           >
-            পরিশোধিত ({payments.filter((p) => p.status === 'PAID').length})
+            {t('status.paid')} ({formatNumber(payments.filter((p) => p.status === 'PAID').length)})
           </Button>
           <Button
             size="sm"
@@ -269,7 +291,7 @@ export const PaymentsPage: React.FC = () => {
             onClick={() => setStatusFilter('DUE')}
             className="text-xs rounded-full h-8"
           >
-            বকেয়া ({payments.filter((p) => p.status === 'DUE').length})
+            {t('status.due')} ({formatNumber(payments.filter((p) => p.status === 'DUE').length)})
           </Button>
           <Button
             size="sm"
@@ -277,107 +299,120 @@ export const PaymentsPage: React.FC = () => {
             onClick={() => setStatusFilter('PARTIAL')}
             className="text-xs rounded-full h-8"
           >
-            আংশিক ({payments.filter((p) => p.status === 'PARTIAL').length})
+            {t('status.partial')} ({formatNumber(payments.filter((p) => p.status === 'PARTIAL').length)})
           </Button>
         </div>
       </div>
 
-      {/* Payments Table */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-14 w-full rounded-xl" />
-          ))}
-        </div>
-      ) : isError ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4">
-          <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
-          <h3 className="text-lg font-bold text-slate-800">পেমেন্ট তালিকা লোড করা যায়নি</h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            {(error as any)?.message || 'সার্ভার থেকে পেমেন্ট সংক্রান্ত তথ্য পাওয়া যায়নি।'}
-          </p>
-          <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
-            <RefreshCw className="w-4 h-4" />
-            <span>পুনরায় লোড করুন</span>
-          </Button>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
-          <FileText className="w-12 h-12 text-slate-300 mx-auto" />
-          <h4 className="text-base font-bold text-slate-800">কোনো পেমেন্ট রেকর্ড পাওয়া যায়নি</h4>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            নতুন ভাড়া বা ফি রেকর্ড করতে ওপরের বাটনে চাপুন।
-          </p>
-        </div>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>রসিদ নম্বর</TableHead>
-              <TableHead>শিক্ষার্থী</TableHead>
-              <TableHead>বিলিং পিরিয়ড</TableHead>
-              <TableHead>পরিশোধ পদ্ধতি</TableHead>
-              <TableHead>নির্ধারিত ফি</TableHead>
-              <TableHead>পরিশোধিত</TableHead>
-              <TableHead>স্ট্যাটাস</TableHead>
-              <TableHead className="text-right">অ্যাকশন</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-mono text-xs font-bold text-slate-800">
-                  {item.receiptNumber}
-                </TableCell>
-                <TableCell>
-                  <div className="font-bold text-slate-900 text-sm">
-                    {item.student?.user?.name || 'শিক্ষার্থী'}
-                  </div>
-                  <div className="text-xs text-slate-400 font-mono">
-                    {item.student?.studentCode} • {item.student?.department}
-                  </div>
-                </TableCell>
-                <TableCell className="text-xs font-medium text-slate-700">
-                  {item.billingPeriod}
-                </TableCell>
-                <TableCell>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
-                    {item.paymentMethod || 'N/A'}
-                  </span>
-                </TableCell>
-                <TableCell className="text-xs font-semibold text-slate-600">
-                  ৳ {Number(item.amount).toLocaleString()}
-                </TableCell>
-                <TableCell className="text-xs font-bold text-emerald-700">
-                  ৳ {Number(item.paidAmount).toLocaleString()}
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={item.status} />
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setReceiptTarget(item)}
-                    className="h-8 px-2.5 text-xs text-slate-700 gap-1.5 hover:text-emerald-700"
-                  >
-                    <Receipt className="w-3.5 h-3.5" />
-                    <span>মানি রিসিট</span>
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+      {/* Main Table Card */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        {isLoading ? (
+          <div className="p-8 space-y-4">
+            <div className="flex items-center justify-center gap-2 text-slate-500 text-sm">
+              <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+              <span>{t('common.loading')}</span>
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : isError ? (
+          <div className="p-8 text-center space-y-3">
+            <AlertCircle className="w-8 h-8 text-rose-500 mx-auto" />
+            <h3 className="text-lg font-bold text-slate-800">{isEn ? 'Failed to load payments' : 'পেমেন্ট তালিকা লোড করা যায়নি'}</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              {(error as any)?.message || t('common.error_occurred')}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>{t('common.retry')}</span>
+            </Button>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center space-y-3">
+            <Receipt className="w-12 h-12 text-slate-300 mx-auto" />
+            <h4 className="text-base font-bold text-slate-800">{t('admin.payments.empty_payments')}</h4>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto">
+              {isEn ? 'Click the button above to record a new fee or payment.' : 'নতুন ভাড়া বা ফি রেকর্ড করতে ওপরের বাটনে চাপুন।'}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50/80">
+                  <TableHead className="font-semibold text-xs">{t('admin.payments.th_receipt_no')}</TableHead>
+                  <TableHead className="font-semibold text-xs">{t('admin.payments.th_student')}</TableHead>
+                  <TableHead className="font-semibold text-xs">{t('admin.payments.th_period')}</TableHead>
+                  <TableHead className="font-semibold text-xs">{t('admin.payments.th_method')}</TableHead>
+                  <TableHead className="font-semibold text-xs">{t('admin.payments.th_amount')}</TableHead>
+                  <TableHead className="font-semibold text-xs">{t('admin.payments.th_paid')}</TableHead>
+                  <TableHead className="font-semibold text-xs">{t('admin.payments.th_status')}</TableHead>
+                  <TableHead className="font-semibold text-xs text-right">{t('common.actions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((item) => (
+                  <TableRow key={item.id} className="hover:bg-slate-50/50">
+                    <TableCell className="font-mono text-xs font-bold text-slate-700">
+                      {item.receiptNumber || 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-xs text-slate-900 block">
+                          {item.student?.user?.name || t('student.payments.student_lbl')}
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-mono">
+                          {item.student?.studentCode} • {item.student?.department}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs font-semibold text-slate-800">
+                      {item.billingPeriod}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px]">
+                        {item.paymentMethod}
+                      </span>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs font-semibold text-slate-800">
+                      {formatCurrency(item.amount)}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs font-extrabold text-emerald-700">
+                      {formatCurrency(item.paidAmount)}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={item.status} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 gap-1"
+                        onClick={() => setReceiptTarget(item)}
+                      >
+                        <Receipt className="w-3.5 h-3.5" />
+                        <span>{t('student.payments.view_receipt')}</span>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
 
-      {/* Record Payment Modal */}
+      {/* Record Payment Dialog */}
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>নতুন ভাড়া / ফি কালেকশন এন্ট্রি</DialogTitle>
-            <DialogDescription>
-              শিক্ষার্থীর মাসিক সিট ভাড়া বা বকেয়া ফি প্রাপ্তি নিশ্চিত করে রসিদ তৈরি করুন।
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-emerald-600" />
+              <span>{t('admin.payments.dialog_record_title')}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              {isEn ? 'Record student hostel rent or dues payment and generate official receipt.' : 'শিক্ষার্থীর মাসিক সিট ভাড়া বা বকেয়া ফি প্রাপ্তি নিশ্চিত করে রসিদ তৈরি করুন।'}
             </DialogDescription>
           </DialogHeader>
 
@@ -388,115 +423,128 @@ export const PaymentsPage: React.FC = () => {
             </Alert>
           )}
 
-          <form onSubmit={handleRecordPayment} className="space-y-4 py-2">
+          <form onSubmit={handleAddSubmit} className="space-y-4 text-xs">
+            {/* Student Dropdown */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">শিক্ষার্থী নির্বাচন করুন *</Label>
+              <Label htmlFor="pay-student" className="text-xs font-semibold">
+                {t('admin.allocations.select_student')} *
+              </Label>
               <select
+                id="pay-student"
                 required
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-ring"
-                value={newPay.studentId}
-                onChange={(e) => setNewPay({ ...newPay, studentId: e.target.value })}
+                value={newPayment.studentId}
+                onChange={(e) => setNewPayment({ ...newPayment, studentId: e.target.value })}
+                className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-xs focus:outline-hidden"
               >
-                <option value="">-- শিক্ষার্থী বাছাই করুন --</option>
-                {studentsList.map((stu) => (
+                <option value="">-- {t('admin.allocations.select_student')} --</option>
+                {students.map((stu) => (
                   <option key={stu.id} value={stu.id}>
-                    {stu.user?.name} ({stu.studentCode} • রোল {stu.rollNumber})
+                    {stu.user?.name} ({stu.studentCode} • {stu.department})
                   </option>
                 ))}
               </select>
             </div>
 
+            {/* Billing Period */}
             <div className="space-y-1.5">
               <Label htmlFor="pay-period" className="text-xs font-semibold">
-                বিলিং পিরিয়ড (মাস ও সাল) *
+                {t('student.payments.billing_period_field')} *
               </Label>
               <Input
                 id="pay-period"
                 required
-                placeholder="যেমন: নভেম্বর ২০২৬"
-                value={newPay.billingPeriod}
-                onChange={(e) => setNewPay({ ...newPay, billingPeriod: e.target.value })}
+                placeholder={isEn ? 'e.g. November 2026' : 'যেমন: নভেম্বর ২০২৬'}
+                value={newPayment.billingPeriod}
+                onChange={(e) => setNewPayment({ ...newPayment, billingPeriod: e.target.value })}
                 className="h-9 text-xs"
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="pay-amt" className="text-xs font-semibold">
-                  ধার্যকৃত মোট ফি (BDT) *
+                <Label htmlFor="pay-amount" className="text-xs font-semibold">
+                  {t('admin.payments.th_amount')} (BDT) *
                 </Label>
                 <Input
-                  id="pay-amt"
+                  id="pay-amount"
                   type="number"
-                  min={1}
+                  min="0"
+                  step="50"
                   required
-                  value={newPay.amount}
-                  onChange={(e) => setNewPay({ ...newPay, amount: e.target.value })}
-                  className="h-9 text-xs"
+                  placeholder="4500"
+                  value={newPayment.amount}
+                  onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+                  className="h-9 text-xs font-mono"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="pay-paid" className="text-xs font-semibold">
-                  প্রাপ্ত অর্থ (BDT) *
+                  {t('admin.payments.th_paid')} (BDT) *
                 </Label>
                 <Input
                   id="pay-paid"
                   type="number"
-                  min={0}
+                  min="0"
+                  step="50"
                   required
-                  value={newPay.paidAmount}
-                  onChange={(e) => setNewPay({ ...newPay, paidAmount: e.target.value })}
-                  className="h-9 text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">পরিশোধের মাধ্যম *</Label>
-                <select
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-ring"
-                  value={newPay.paymentMethod}
-                  onChange={(e) => setNewPay({ ...newPay, paymentMethod: e.target.value as any })}
-                >
-                  <option value="BKASH">বিকাশ (bKash)</option>
-                  <option value="NAGAD">নগদ (Nagad)</option>
-                  <option value="CASH">ক্যাশ / নগদ টাকা</option>
-                  <option value="BANK_TRANSFER">ব্যাংক ডিপোজিট</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="pay-tx" className="text-xs font-semibold text-slate-500">
-                  ট্রানজ্যাকশন আইডি (ঐচ্ছিক)
-                </Label>
-                <Input
-                  id="pay-tx"
-                  placeholder="e.g. TRX982341"
-                  value={newPay.transactionReference}
-                  onChange={(e) => setNewPay({ ...newPay, transactionReference: e.target.value })}
+                  placeholder="4500"
+                  value={newPayment.paidAmount}
+                  onChange={(e) => setNewPayment({ ...newPayment, paidAmount: e.target.value })}
                   className="h-9 text-xs font-mono"
                 />
               </div>
             </div>
 
-            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
-              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setAddModalOpen(false)}>
-                বাতিল
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">{t('student.payments.select_method')} *</Label>
+              <select
+                value={newPayment.paymentMethod}
+                onChange={(e) => setNewPayment({ ...newPayment, paymentMethod: e.target.value as any })}
+                className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs"
+              >
+                <option value="BKASH">{t('admin.payments.method_bkash')}</option>
+                <option value="NAGAD">{t('admin.payments.method_nagad')}</option>
+                <option value="CASH">{t('admin.payments.method_cash')}</option>
+                <option value="BANK_TRANSFER">{t('admin.payments.method_bank')}</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="pay-ref" className="text-xs font-semibold">
+                {t('student.payments.trx_id_field')}
+              </Label>
+              <Input
+                id="pay-ref"
+                placeholder="BK9X274LAQ"
+                value={newPayment.transactionReference}
+                onChange={(e) => setNewPayment({ ...newPayment, transactionReference: e.target.value })}
+                className="h-9 text-xs font-mono"
+              />
+            </div>
+
+            <DialogFooter className="gap-2 pt-2 flex-col sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setAddModalOpen(false)}
+              >
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
-                disabled={recordPaymentMutation.isPending}
-                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
+                size="sm"
+                disabled={addPaymentMutation.isPending}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                {recordPaymentMutation.isPending ? (
+                {addPaymentMutation.isPending ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                    <span>রেকর্ড হচ্ছে...</span>
+                    <span>{t('common.loading')}</span>
                   </>
                 ) : (
-                  <span>পেমেন্ট সংরক্ষণ করুন</span>
+                  <span>{t('common.save')}</span>
                 )}
               </Button>
             </DialogFooter>
@@ -504,59 +552,61 @@ export const PaymentsPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Official Receipt Modal Dialog */}
+      {/* Official Receipt Dialog */}
       {receiptTarget && (
-        <Dialog open={!!receiptTarget} onOpenChange={(open) => !open && setReceiptTarget(null)}>
-          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <Dialog open={!!receiptTarget} onOpenChange={() => setReceiptTarget(null)}>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle className="flex items-center justify-between text-base">
-                <span>অফিসিয়াল মানি রিসিট (Receipt)</span>
-                <span className="text-xs font-mono text-emerald-700">{receiptTarget.receiptNumber}</span>
+              <DialogTitle className="text-base font-bold flex items-center justify-between border-b pb-2">
+                <span>{t('student.payments.receipt_title')}</span>
+                <span className="text-xs font-mono text-slate-400">{receiptTarget.receiptNumber}</span>
               </DialogTitle>
             </DialogHeader>
 
-            <div className="p-6 bg-slate-50/80 rounded-xl border border-slate-200 text-xs space-y-4 my-2">
+            <div className="p-4 bg-slate-50 rounded-xl space-y-3 text-xs">
               <div className="flex justify-between border-b pb-2">
-                <span className="text-slate-500">শিক্ষার্থী:</span>
+                <span className="text-slate-500">{t('student.payments.student_lbl')}:</span>
                 <span className="font-bold text-slate-900">{receiptTarget.student?.user?.name}</span>
               </div>
               <div className="flex justify-between border-b pb-2">
-                <span className="text-slate-500">আইডি ও বিভাগ:</span>
-                <span className="font-mono text-slate-700">
-                  {receiptTarget.student?.studentCode} • {receiptTarget.student?.department}
-                </span>
+                <span className="text-slate-500">{t('admin.students.th_academic')}:</span>
+                <span className="font-mono">{receiptTarget.student?.studentCode} ({receiptTarget.student?.department})</span>
               </div>
               <div className="flex justify-between border-b pb-2">
-                <span className="text-slate-500">বিলিং সেশন:</span>
-                <span className="font-bold text-slate-800">{receiptTarget.billingPeriod}</span>
+                <span className="text-slate-500">{t('admin.payments.th_period')}:</span>
+                <span className="font-semibold">{receiptTarget.billingPeriod}</span>
               </div>
               <div className="flex justify-between border-b pb-2">
-                <span className="text-slate-500">পেমেন্ট মেথড:</span>
-                <span className="font-semibold text-slate-700">{receiptTarget.paymentMethod}</span>
+                <span className="text-slate-500">{t('admin.payments.th_method')}:</span>
+                <span className="font-mono font-bold text-slate-800">{receiptTarget.paymentMethod}</span>
               </div>
               {receiptTarget.transactionReference && (
                 <div className="flex justify-between border-b pb-2">
-                  <span className="text-slate-500">ট্রানজ্যাকশন আইডি:</span>
-                  <span className="font-mono text-slate-700">{receiptTarget.transactionReference}</span>
+                  <span className="text-slate-500">{t('student.payments.trx_lbl')}</span>
+                  <span className="font-mono text-emerald-700">{receiptTarget.transactionReference}</span>
                 </div>
               )}
               <div className="flex justify-between border-b pb-2">
-                <span className="text-slate-500">নির্ধারিত মোট ভাড়া:</span>
-                <span className="font-semibold text-slate-800">৳ {Number(receiptTarget.amount).toLocaleString()}</span>
+                <span className="text-slate-500">{t('student.payments.th_monthly_rent')}:</span>
+                <span className="font-semibold text-slate-800">{formatCurrency(receiptTarget.amount)}</span>
               </div>
-              <div className="flex justify-between text-sm font-bold text-emerald-800 pt-1">
-                <span>আদায়কৃত অর্থ:</span>
-                <span>৳ {Number(receiptTarget.paidAmount).toLocaleString()}</span>
+              <div className="flex justify-between pt-1 text-sm font-extrabold text-emerald-800">
+                <span>{t('student.payments.total_collected')}</span>
+                <span>{formatCurrency(receiptTarget.paidAmount)}</span>
               </div>
             </div>
 
-            <DialogFooter className="gap-2 flex flex-col-reverse sm:flex-row">
-              <Button variant="outline" className="w-full sm:w-auto" onClick={() => setReceiptTarget(null)}>
-                বন্ধ করুন
+            <DialogFooter className="gap-2 flex-col sm:flex-row">
+              <Button variant="outline" size="sm" onClick={() => setReceiptTarget(null)}>
+                {t('common.close')}
               </Button>
-              <Button onClick={() => window.print()} className="w-full sm:w-auto gap-2">
-                <Printer className="w-4 h-4" />
-                <span>প্রিন্ট রসিদ</span>
+              <Button
+                size="sm"
+                onClick={() => window.print()}
+                className="gap-1 bg-emerald-700 hover:bg-emerald-800 text-white"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>{t('student.payments.print_receipt')}</span>
               </Button>
             </DialogFooter>
           </DialogContent>

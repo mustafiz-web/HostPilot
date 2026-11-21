@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api-client';
+import { formatCurrency, formatDate } from '@/lib/formatters';
 
 interface StudentDashboardData {
   profile: {
@@ -77,7 +78,7 @@ export const StudentRoomPage: React.FC = () => {
   const changeRequestMutation = useMutation({
     mutationFn: async (reason: string) => {
       const res = await apiClient.post('/complaints', {
-        title: 'রুম পরিবর্তনের আবেদন (Room Change Request)',
+        title: isEn ? 'Room Change Request' : 'রুম পরিবর্তনের আবেদন (Room Change Request)',
         category: 'OTHER',
         priority: 'MEDIUM',
         description: reason,
@@ -94,7 +95,12 @@ export const StudentRoomPage: React.FC = () => {
       }, 2000);
     },
     onError: (err: any) => {
-      setSubmitError(err.message || 'আবেদন দাখিল করতে সমস্যা হয়েছে');
+      setSubmitError(
+        err.message ||
+          (isEn
+            ? 'Failed to submit room change request.'
+            : 'আবেদন দাখিল করতে সমস্যা হয়েছে।')
+      );
     },
   });
 
@@ -121,13 +127,15 @@ export const StudentRoomPage: React.FC = () => {
     return (
       <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4">
         <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
-        <h3 className="text-lg font-bold text-slate-800">রুম তথ্য সংগ্রহ করা যায়নি</h3>
+        <h3 className="text-lg font-bold text-slate-800">
+          {isEn ? 'Failed to fetch room information' : 'রুম তথ্য সংগ্রহ করা যায়নি'}
+        </h3>
         <p className="text-xs text-slate-500 max-w-sm mx-auto">
-          {(error as any)?.message || 'সার্ভার থেকে সিট বরাদ্দের তথ্য পাওয়া যায়নি।'}
+          {(error as any)?.message || (isEn ? 'Unable to load seat allocation data from server.' : 'সার্ভার থেকে সিট বরাদ্দের তথ্য পাওয়া যায়নি।')}
         </p>
         <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
           <RefreshCw className="w-4 h-4" />
-          <span>পুনরায় চেষ্টা করুন</span>
+          <span>{t('common.retry')}</span>
         </Button>
       </div>
     );
@@ -136,12 +144,12 @@ export const StudentRoomPage: React.FC = () => {
   const { allocation, roommates, profile } = dashboardData;
 
   const defaultAmenities = [
-    'ব্যক্তিগত স্টাডি টেবিল ও চেয়ার',
-    'উচ্চগতির ওয়াই-ফাই (Wi-Fi 24/7)',
-    'ব্যক্তিগত ক্লোজেট / লকার সুবিধা',
-    'নিয়মিত হাউস-কিপিং ও পরিচ্ছন্নতা',
-    'নিরবচ্ছিন্ন বিদ্যুৎ ও ব্যাকআপ সুবিধা',
-    'নিরাপদ ফিল্টার করা খাবার পানি',
+    t('student.room.amenity_table', 'Personal Study Desk & Chair'),
+    t('student.room.amenity_wifi', '24/7 High-Speed Wi-Fi'),
+    t('student.room.amenity_closet', 'Personal Wardrobe / Locker'),
+    t('student.room.amenity_cleaning', 'Regular Housekeeping & Sanitation'),
+    t('student.room.amenity_power', 'Uninterrupted Electricity & Backup'),
+    isEn ? 'Safe Filtered Drinking Water' : 'নিরাপদ ফিল্টার করা খাবার পানি',
   ];
 
   return (
@@ -202,7 +210,7 @@ export const StudentRoomPage: React.FC = () => {
               </div>
               <div className="sm:text-right">
                 <div className="text-xl sm:text-2xl font-black text-emerald-700">
-                  ৳ {allocation.monthlyRent.toLocaleString()}
+                  {formatCurrency(allocation.monthlyRent, i18n.language)}
                 </div>
                 <span className="text-xs text-slate-400">{t('student.room.monthly_charge')}</span>
               </div>
@@ -211,21 +219,27 @@ export const StudentRoomPage: React.FC = () => {
             {/* Quick Specifications */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
-                <span className="text-slate-400 block mb-1">রুমের ধরন:</span>
+                <span className="text-slate-400 block mb-1">
+                  {isEn ? 'Room Type:' : 'রুমের ধরন:'}
+                </span>
                 <span className="font-bold text-slate-800 text-sm">{allocation.roomType}</span>
               </div>
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
-                <span className="text-slate-400 block mb-1">বরাদ্দের তারিখ:</span>
+                <span className="text-slate-400 block mb-1">
+                  {isEn ? 'Allocation Date:' : 'বরাদ্দের তারিখ:'}
+                </span>
                 <span className="font-bold text-slate-800 text-sm flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                  {new Date(allocation.startDate).toLocaleDateString()}
+                  {formatDate(allocation.startDate, i18n.language)}
                 </span>
               </div>
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 col-span-2 sm:col-span-1">
-                <span className="text-slate-400 block mb-1">বর্তমান সিট স্ট্যাটাস:</span>
+                <span className="text-slate-400 block mb-1">
+                  {isEn ? 'Current Seat Status:' : 'বর্তমান সিট স্ট্যাটাস:'}
+                </span>
                 <span className="font-bold text-emerald-700 text-sm flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  সক্রিয় বরাদ্দ (Occupied)
+                  {t('status.occupied')}
                 </span>
               </div>
             </div>
@@ -234,7 +248,7 @@ export const StudentRoomPage: React.FC = () => {
             <div className="space-y-3">
               <h4 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                 <Wifi className="w-4 h-4 text-emerald-600" />
-                <span>রুমের অন্তর্ভুক্ত সুযোগ-সুবিধাসমূহ:</span>
+                <span>{t('student.room.amenities_title', 'Room Amenities & Facilities:')}</span>
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {defaultAmenities.map((item, idx) => (
@@ -254,10 +268,14 @@ export const StudentRoomPage: React.FC = () => {
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
             <div className="flex items-center gap-2 border-b pb-3">
               <Users className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-bold text-base text-slate-900">সহাবস্থানকারী রুমমেট</h3>
+              <h3 className="font-bold text-base text-slate-900">
+                {t('student.room.roommates_title', 'Roommates List')}
+              </h3>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              হোস্টেলের জরুরি সমন্বয় ও সৌহার্দ্যপূর্ণ পরিবেশ বজায় রাখার স্বার্থে রুমমেটের মৌলিক তথ্য
+              {isEn
+                ? 'Information of fellow residents living in this room for hostel coordination.'
+                : 'হোস্টেলের জরুরি সমন্বয় ও সৌহার্দ্যপূর্ণ পরিবেশ বজায় রাখার স্বার্থে রুমমেটের মৌলিক তথ্য'}
             </p>
 
             <div className="space-y-3 pt-2">
@@ -271,10 +289,12 @@ export const StudentRoomPage: React.FC = () => {
                     <div className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
                       <span>{profile.name}</span>
                       <span className="text-[10px] bg-emerald-600 text-white font-medium px-1.5 py-0.5 rounded">
-                        আপনি
+                        {isEn ? 'You' : 'আপনি'}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-500 font-mono">আইডি: {profile.studentCode}</div>
+                    <div className="text-xs text-slate-500 font-mono">
+                      {isEn ? 'ID:' : 'আইডি:'} {profile.studentCode}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -282,7 +302,7 @@ export const StudentRoomPage: React.FC = () => {
               {/* Other Roommates */}
               {roommates.length === 0 ? (
                 <div className="p-4 rounded-xl border border-slate-100 bg-slate-50 text-center text-xs text-slate-400">
-                  বর্তমানে এই রুমে অন্য কোনো রুমমেট বরাদ্দ নেই
+                  {t('student.dashboard.no_roommates')}
                 </div>
               ) : (
                 roommates.map((rm, idx) => (
@@ -307,7 +327,9 @@ export const StudentRoomPage: React.FC = () => {
             <div className="p-3 bg-amber-50 rounded-xl border border-amber-200/80 text-xs text-amber-900 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <span>
-                রুমের কোনো ফার্নিচার বা ফিক্সচারের ক্ষয়ক্ষতি হলে তাৎক্ষণিকভাবে অভিযোগ সেকশনে রিপোর্ট করুন।
+                {isEn
+                  ? 'If any room fixtures or furniture need maintenance, please submit a report in the complaints section.'
+                  : 'রুমের কোনো ফার্নিচার বা ফিক্সচারের ক্ষয়ক্ষতি হলে তাৎক্ষণিকভাবে অভিযোগ সেকশনে রিপোর্ট করুন।'}
               </span>
             </div>
           </div>
@@ -318,9 +340,13 @@ export const StudentRoomPage: React.FC = () => {
       <Dialog open={changeModalOpen} onOpenChange={setChangeModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>রুম বা সিট পরিবর্তনের আবেদন</DialogTitle>
+            <DialogTitle>
+              {isEn ? 'Request Room or Bed Change' : 'রুম বা সিট পরিবর্তনের আবেদন'}
+            </DialogTitle>
             <DialogDescription>
-              রুম পরিবর্তনের যৌক্তিক কারণ উল্লেখ করে হোস্টেল সুপারিনটেনডেন্ট বরাবর আবেদন জমা দিন।
+              {isEn
+                ? 'Submit an application to the hostel superintendent detailing your valid reason for room transfer.'
+                : 'রুম পরিবর্তনের যৌক্তিক কারণ উল্লেখ করে হোস্টেল সুপারিনটেনডেন্ট বরাবর আবেদন জমা দিন।'}
             </DialogDescription>
           </DialogHeader>
 
@@ -334,30 +360,42 @@ export const StudentRoomPage: React.FC = () => {
           {submitSuccess ? (
             <div className="p-6 bg-emerald-50 rounded-xl text-center space-y-2 border border-emerald-200">
               <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-              <h4 className="font-bold text-emerald-900">আবেদন সফলভাবে গৃহীত হয়েছে!</h4>
+              <h4 className="font-bold text-emerald-900">
+                {isEn ? 'Application Submitted Successfully!' : 'আবেদন সফলভাবে গৃহীত হয়েছে!'}
+              </h4>
               <p className="text-xs text-emerald-700">
-                আপনার আবেদনটি অভিযোগ/রিকোয়েস্ট ট্র্যাকিংয়ে নথিভুক্ত হয়েছে। কর্তৃপক্ষ দ্রুত পর্যালোচনা করবে।
+                {isEn
+                  ? 'Your transfer request has been recorded. Administration will review it promptly.'
+                  : 'আপনার আবেদনটি অভিযোগ/রিকোয়েস্ট ট্র্যাকিংয়ে নথিভুক্ত হয়েছে। কর্তৃপক্ষ দ্রুত পর্যালোচনা করবে।'}
               </p>
             </div>
           ) : (
             <form onSubmit={handleRoomChangeSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="currentRoom" className="text-xs font-semibold">
-                  বর্তমান রুম ও সিট
+                  {isEn ? 'Current Room & Bed' : 'বর্তমান রুম ও সিট'}
                 </Label>
                 <div className="p-2.5 bg-slate-100 rounded-lg text-xs font-mono font-bold text-slate-800">
-                  {allocation ? `রুম ${allocation.roomNumber} (বেড ${allocation.bedCode}) • ফ্লোর ${allocation.floor}` : 'বরাদ্দ নেই'}
+                  {allocation
+                    ? isEn
+                      ? `Room ${allocation.roomNumber} (Bed ${allocation.bedCode}) • Floor ${allocation.floor}`
+                      : `রুম ${allocation.roomNumber} (বেড ${allocation.bedCode}) • ফ্লোর ${allocation.floor}`
+                    : t('common.no_data')}
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="changeReason" className="text-xs font-semibold">
-                  রুম পরিবর্তনের কারণ *
+                  {isEn ? 'Reason for Change *' : 'রুম পরিবর্তনের কারণ *'}
                 </Label>
                 <Textarea
                   id="changeReason"
                   rows={3}
-                  placeholder="যেমন: পড়াশোনার নীরবতার জন্য সিঙ্গেল রুমে স্থানান্তর প্রয়োজন / নিচতলায় স্থানান্তর প্রয়োজন..."
+                  placeholder={
+                    isEn
+                      ? 'e.g. Need single room for quiet study / transfer to lower floor required...'
+                      : 'যেমন: পড়াশোনার নীরবতার জন্য সিঙ্গেল রুমে স্থানান্তর প্রয়োজন / নিচতলায় স্থানান্তর প্রয়োজন...'
+                  }
                   value={changeReason}
                   onChange={(e) => setChangeReason(e.target.value)}
                   required
@@ -370,7 +408,7 @@ export const StudentRoomPage: React.FC = () => {
                   variant="outline"
                   onClick={() => setChangeModalOpen(false)}
                 >
-                  বাতিল
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   type="submit"
@@ -380,10 +418,10 @@ export const StudentRoomPage: React.FC = () => {
                   {changeRequestMutation.isPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                      <span>জমা হচ্ছে...</span>
+                      <span>{isEn ? 'Submitting...' : 'জমা হচ্ছে...'}</span>
                     </>
                   ) : (
-                    <span>আবেদন দাখিল করুন</span>
+                    <span>{t('common.submit')}</span>
                   )}
                 </Button>
               </DialogFooter>

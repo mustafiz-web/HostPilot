@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Bell,
   Plus,
+  Search,
   Eye,
   Edit2,
   Trash2,
   Pin,
-  Search,
   Filter,
   Users,
   AlertCircle,
@@ -39,8 +40,9 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { apiClient } from '@/lib/api-client';
+import { formatDate, formatNumber } from '@/lib/formatters';
 
-export interface NoticeItem {
+interface NoticeItem {
   id: string;
   title: string;
   content: string;
@@ -52,58 +54,60 @@ export interface NoticeItem {
   status: 'PUBLISHED' | 'DRAFT';
   publishedAt: string | null;
   expiresAt: string | null;
-  createdByUserId: string;
   createdByUser?: {
     name: string;
     email: string;
   };
   createdAt: string;
-  updatedAt: string;
 }
 
-export const NoticesAdminPage: React.FC = () => {
+export const AdminNoticesPage: React.FC = () => {
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language?.startsWith('en');
   const queryClient = useQueryClient();
 
-  // Filter & Search states
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'DRAFT'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [audienceFilter, setAudienceFilter] = useState<string>('ALL');
 
-  // Modal states
+  // Modals
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
   const [editNotice, setEditNotice] = useState<NoticeItem | null>(null);
-  const [editForm, setEditForm] = useState({
-    title: '',
-    content: '',
-    titleEn: '',
-    contentEn: '',
-    category: 'সাধারণ',
-    targetAudience: 'ALL' as 'ALL' | 'STUDENTS' | 'ADMIN',
-    isPinned: false,
-    status: 'PUBLISHED' as 'PUBLISHED' | 'DRAFT',
-    expiresAt: '',
-  });
   const [editError, setEditError] = useState<string | null>(null);
 
   const [deleteTarget, setDeleteTarget] = useState<NoticeItem | null>(null);
   const [viewNotice, setViewNotice] = useState<NoticeItem | null>(null);
 
+  // Form State: Create
   const [newNotice, setNewNotice] = useState({
     title: '',
-    content: '',
     titleEn: '',
+    content: '',
     contentEn: '',
-    category: 'সাধারণ',
+    category: 'GENERAL',
     targetAudience: 'ALL' as 'ALL' | 'STUDENTS' | 'ADMIN',
     isPinned: false,
     status: 'PUBLISHED' as 'PUBLISHED' | 'DRAFT',
     expiresAt: '',
   });
 
-  // Query: Fetch all notices from real MySQL API
+  // Form State: Edit
+  const [editForm, setEditForm] = useState({
+    title: '',
+    titleEn: '',
+    content: '',
+    contentEn: '',
+    category: 'GENERAL',
+    targetAudience: 'ALL' as 'ALL' | 'STUDENTS' | 'ADMIN',
+    isPinned: false,
+    status: 'PUBLISHED' as 'PUBLISHED' | 'DRAFT',
+    expiresAt: '',
+  });
+
+  // Query: Fetch Notices from MySQL
   const {
     data: noticesResponse,
     isLoading,
@@ -121,27 +125,26 @@ export const NoticesAdminPage: React.FC = () => {
 
   const notices: NoticeItem[] = noticesResponse?.data || [];
 
-  // Mutation: Create Notice
+  // Mutations
   const createNoticeMutation = useMutation({
     mutationFn: async (payload: typeof newNotice) => {
       const res = await apiClient.post<NoticeItem>('/notices', {
         ...payload,
-        expiresAt: payload.expiresAt ? new Date(payload.expiresAt).toISOString() : null,
+        expiresAt: payload.expiresAt ? new Date(payload.expiresAt).toISOString() : undefined,
       });
       return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-notices'] });
       queryClient.invalidateQueries({ queryKey: ['student-notices'] });
-      queryClient.invalidateQueries({ queryKey: ['public-notices'] });
       setCreateModalOpen(false);
       setCreateError(null);
       setNewNotice({
         title: '',
-        content: '',
         titleEn: '',
+        content: '',
         contentEn: '',
-        category: 'সাধারণ',
+        category: 'GENERAL',
         targetAudience: 'ALL',
         isPinned: false,
         status: 'PUBLISHED',
@@ -149,11 +152,10 @@ export const NoticesAdminPage: React.FC = () => {
       });
     },
     onError: (err: any) => {
-      setCreateError(err.message || 'নোটিশ প্রকাশ করতে সমস্যা হয়েছে');
+      setCreateError(err.message || t('common.error_occurred'));
     },
   });
 
-  // Mutation: Update Notice
   const updateNoticeMutation = useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: typeof editForm }) => {
       const res = await apiClient.patch<NoticeItem>(`/notices/${id}`, {
@@ -165,62 +167,69 @@ export const NoticesAdminPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-notices'] });
       queryClient.invalidateQueries({ queryKey: ['student-notices'] });
-      queryClient.invalidateQueries({ queryKey: ['public-notices'] });
       setEditNotice(null);
       setEditError(null);
     },
     onError: (err: any) => {
-      setEditError(err.message || 'নোটিশ আপডেট করতে সমস্যা হয়েছে');
+      setEditError(err.message || t('common.error_occurred'));
     },
   });
 
-  // Mutation: Toggle Publish Status
   const togglePublishMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiClient.patch<NoticeItem>(`/notices/${id}/toggle-publish`);
+      const target = notices.find((n) => n.id === id);
+      const nextStatus = target?.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
+      const res = await apiClient.patch(`/notices/${id}`, { status: nextStatus });
       return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-notices'] });
       queryClient.invalidateQueries({ queryKey: ['student-notices'] });
-      queryClient.invalidateQueries({ queryKey: ['public-notices'] });
     },
     onError: (err: any) => {
-      alert(err.message || 'স্ট্যাটাস পরিবর্তন করা সম্ভব হয়নি');
+      alert(err.message || t('common.error_occurred'));
     },
   });
 
-  // Mutation: Delete Notice
   const deleteNoticeMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiClient.delete<any>(`/notices/${id}`);
+      const res = await apiClient.delete(`/notices/${id}`);
       return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-notices'] });
       queryClient.invalidateQueries({ queryKey: ['student-notices'] });
-      queryClient.invalidateQueries({ queryKey: ['public-notices'] });
       setDeleteTarget(null);
     },
     onError: (err: any) => {
-      alert(err.message || 'নোটিশ মুছে ফেলা যায়নি');
+      alert(err.message || t('common.error_occurred'));
     },
   });
 
-  // Handlers
-  const handleCreateSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreateError(null);
-    createNoticeMutation.mutate(newNotice);
-  };
+  // Client filtering
+  const filteredNotices = notices.filter((n) => {
+    if (statusFilter !== 'ALL' && n.status !== statusFilter) return false;
+    if (categoryFilter !== 'ALL' && n.category !== categoryFilter) return false;
+    if (audienceFilter !== 'ALL' && n.targetAudience !== audienceFilter) return false;
+
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      const matchBn = n.title.toLowerCase().includes(term) || n.content.toLowerCase().includes(term);
+      const matchEn =
+        (n.titleEn && n.titleEn.toLowerCase().includes(term)) ||
+        (n.contentEn && n.contentEn.toLowerCase().includes(term));
+      if (!matchBn && !matchEn) return false;
+    }
+
+    return true;
+  });
 
   const handleOpenEdit = (n: NoticeItem) => {
     setEditNotice(n);
-    setEditError(null);
     setEditForm({
       title: n.title,
-      content: n.content,
       titleEn: n.titleEn || '',
+      content: n.content,
       contentEn: n.contentEn || '',
       category: n.category,
       targetAudience: n.targetAudience,
@@ -228,6 +237,13 @@ export const NoticesAdminPage: React.FC = () => {
       status: n.status,
       expiresAt: n.expiresAt ? n.expiresAt.split('T')[0] : '',
     });
+    setEditError(null);
+  };
+
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateError(null);
+    createNoticeMutation.mutate(newNotice);
   };
 
   const handleUpdateSubmit = (e: React.FormEvent) => {
@@ -236,23 +252,6 @@ export const NoticesAdminPage: React.FC = () => {
     setEditError(null);
     updateNoticeMutation.mutate({ id: editNotice.id, payload: editForm });
   };
-
-  // Filtered list
-  const filteredNotices = notices.filter((n) => {
-    const term = searchTerm.toLowerCase().trim();
-    const matchesSearch =
-      !term ||
-      n.title.toLowerCase().includes(term) ||
-      (n.titleEn && n.titleEn.toLowerCase().includes(term)) ||
-      n.content.toLowerCase().includes(term) ||
-      (n.createdByUser && n.createdByUser.name.toLowerCase().includes(term));
-
-    const matchesStatus = statusFilter === 'ALL' || n.status === statusFilter;
-    const matchesCategory = categoryFilter === 'ALL' || n.category === categoryFilter;
-    const matchesAudience = audienceFilter === 'ALL' || n.targetAudience === audienceFilter;
-
-    return matchesSearch && matchesStatus && matchesCategory && matchesAudience;
-  });
 
   const totalPublished = notices.filter((n) => n.status === 'PUBLISHED').length;
   const totalDraft = notices.filter((n) => n.status === 'DRAFT').length;
@@ -265,48 +264,59 @@ export const NoticesAdminPage: React.FC = () => {
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
             <Bell className="w-6 h-6 text-emerald-600" />
-            <span>হোস্টেল নোটিশ বোর্ড পরিচালনা (Notice Management)</span>
+            <span>{t('admin.notices.title')}</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            নোটিশ তৈরি, দ্বিভাষিক প্রকাশনা, টার্গেট অডিয়েন্স এবং খসড়া ও প্রকাশনা ব্যবস্থাপনা
+            {t('admin.notices.subtitle')}
           </p>
         </div>
-        <Button
-          onClick={() => {
-            setCreateError(null);
-            setCreateModalOpen(true);
-          }}
-          className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>নতুন নোটিশ লিখুন</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            className="gap-1.5 text-xs text-slate-700"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>{t('common.refresh')}</span>
+          </Button>
+          <Button
+            onClick={() => {
+              setCreateError(null);
+              setCreateModalOpen(true);
+            }}
+            className="gap-2 shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t('admin.notices.btn_create_notice')}</span>
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase block">সর্বমোট নোটিশ</span>
-          <div className="text-xl sm:text-2xl font-black text-slate-900">{notices.length} টি</div>
-          <span className="text-[10px] text-slate-400">ডাটাবেসে সংরক্ষিত</span>
+          <span className="text-[11px] font-semibold text-slate-500 uppercase block">{t('admin.notices.stat_total')}</span>
+          <div className="text-xl sm:text-2xl font-black text-slate-900">{formatNumber(notices.length)}</div>
+          <span className="text-[10px] text-slate-400">{isEn ? 'Recorded in database' : 'ডাটাবেসে সংরক্ষিত'}</span>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase block">প্রকাশিত (Published)</span>
-          <div className="text-xl sm:text-2xl font-black text-emerald-600">{totalPublished} টি</div>
-          <span className="text-[10px] text-emerald-700 font-medium">শিক্ষার্থীদের জন্য উন্মুক্ত</span>
+          <span className="text-[11px] font-semibold text-slate-500 uppercase block">{t('admin.notices.stat_published')}</span>
+          <div className="text-xl sm:text-2xl font-black text-emerald-600">{formatNumber(totalPublished)}</div>
+          <span className="text-[10px] text-emerald-700 font-medium">{isEn ? 'Visible to students' : 'শিক্ষার্থীদের জন্য উন্মুক্ত'}</span>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase block">খসড়া (Draft)</span>
-          <div className="text-xl sm:text-2xl font-black text-amber-600">{totalDraft} টি</div>
-          <span className="text-[10px] text-slate-400">অপ্রকাশিত অবস্থায়</span>
+          <span className="text-[11px] font-semibold text-slate-500 uppercase block">{t('admin.notices.stat_draft')}</span>
+          <div className="text-xl sm:text-2xl font-black text-amber-600">{formatNumber(totalDraft)}</div>
+          <span className="text-[10px] text-slate-400">{isEn ? 'Unpublished state' : 'অপ্রকাশিত অবস্থায়'}</span>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-1">
-          <span className="text-[11px] font-semibold text-slate-500 uppercase block">পিনযুক্ত (Important)</span>
-          <div className="text-xl sm:text-2xl font-black text-blue-600">{totalPinned} টি</div>
-          <span className="text-[10px] text-slate-400">সর্বোচ্চ গুরুত্বে শীর্ষে</span>
+          <span className="text-[11px] font-semibold text-slate-500 uppercase block">{t('admin.notices.pin_to_top')}</span>
+          <div className="text-xl sm:text-2xl font-black text-blue-600">{formatNumber(totalPinned)}</div>
+          <span className="text-[10px] text-slate-400">{isEn ? 'Pinned to top' : 'সর্বোচ্চ গুরুত্বে শীর্ষে'}</span>
         </div>
       </div>
 
@@ -316,7 +326,7 @@ export const NoticesAdminPage: React.FC = () => {
         <div className="relative w-full md:w-80">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <Input
-            placeholder="নোটিশ শিরোনাম বা বিবরণ দিয়ে খুঁজুন..."
+            placeholder={t('student.notices.search_placeholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-9 h-9 text-xs sm:text-sm"
@@ -328,48 +338,47 @@ export const NoticesAdminPage: React.FC = () => {
           {/* Status Filter */}
           <div className="flex items-center gap-1.5 mr-2">
             <Filter className="w-4 h-4 text-slate-400" />
-            <span className="text-xs text-slate-500 font-medium">স্ট্যাটাস:</span>
+            <span className="text-xs text-slate-500 font-medium">{t('common.status')}:</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
               className="h-8 text-xs rounded-lg border border-slate-200 bg-white px-2 focus:ring-1 focus:ring-emerald-500"
             >
-              <option value="ALL">সকল স্ট্যাটাস</option>
-              <option value="PUBLISHED">প্রকাশিত (Published)</option>
-              <option value="DRAFT">খসড়া (Draft)</option>
+              <option value="ALL">{isEn ? 'All Statuses' : 'সকল স্ট্যাটাস'}</option>
+              <option value="PUBLISHED">{t('admin.notices.stat_published')}</option>
+              <option value="DRAFT">{t('admin.notices.stat_draft')}</option>
             </select>
           </div>
 
           {/* Category Filter */}
           <div className="flex items-center gap-1.5 mr-2">
-            <span className="text-xs text-slate-500 font-medium">ক্যাটাগরি:</span>
+            <span className="text-xs text-slate-500 font-medium">{t('student.complaints.category_field')}:</span>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="h-8 text-xs rounded-lg border border-slate-200 bg-white px-2 focus:ring-1 focus:ring-emerald-500"
             >
-              <option value="ALL">সকল ক্যাটাগরি</option>
-              <option value="সাধারণ">সাধারণ</option>
-              <option value="ভর্তি">ভর্তি</option>
-              <option value="ডাইনিং">ডাইনিং</option>
-              <option value="ছুটি">ছুটি</option>
-              <option value="জরুরি">জরুরি</option>
+              <option value="ALL">{isEn ? 'All Categories' : 'সকল ক্যাটাগরি'}</option>
+              <option value="GENERAL">{t('student.notices.filter_general')}</option>
+              <option value="ADMISSION">{isEn ? 'Admission' : 'ভর্তি'}</option>
+              <option value="DINING">{isEn ? 'Dining' : 'ডাইনিং'}</option>
+              <option value="HOLIDAY">{isEn ? 'Holiday' : 'ছুটি'}</option>
+              <option value="URGENT">{t('student.notices.filter_urgent')}</option>
             </select>
           </div>
 
           {/* Audience Filter */}
           <div className="flex items-center gap-1.5">
             <Users className="w-4 h-4 text-slate-400" />
-            <span className="text-xs text-slate-500 font-medium">প্রাপক:</span>
+            <span className="text-xs text-slate-500 font-medium">{isEn ? 'Audience:' : 'প্রাপক:'}</span>
             <select
               value={audienceFilter}
               onChange={(e) => setAudienceFilter(e.target.value)}
               className="h-8 text-xs rounded-lg border border-slate-200 bg-white px-2 focus:ring-1 focus:ring-emerald-500"
             >
-              <option value="ALL">সকল প্রাপক</option>
-              <option value="ALL">সবার জন্য (ALL)</option>
-              <option value="STUDENTS">শুধুমাত্র শিক্ষার্থী</option>
-              <option value="ADMIN">শুধুমাত্র অ্যাডমিন</option>
+              <option value="ALL">{isEn ? 'All Audience' : 'সকল প্রাপক'}</option>
+              <option value="STUDENTS">{isEn ? 'Students Only' : 'শুধুমাত্র শিক্ষার্থী'}</option>
+              <option value="ADMIN">{isEn ? 'Admin Only' : 'শুধুমাত্র অ্যাডমিন'}</option>
             </select>
           </div>
         </div>
@@ -385,142 +394,143 @@ export const NoticesAdminPage: React.FC = () => {
       ) : isError ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4">
           <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
-          <h3 className="text-lg font-bold text-slate-800">নোটিশ তালিকা লোড করা যায়নি</h3>
+          <h3 className="text-lg font-bold text-slate-800">{isEn ? 'Failed to load notices' : 'নোটিশ তালিকা লোড করা যায়নি'}</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            {(error as any)?.message || 'সার্ভার থেকে নোটিশ লোড করতে সমস্যা হয়েছে।'}
+            {(error as any)?.message || t('common.error_occurred')}
           </p>
           <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
             <RefreshCw className="w-4 h-4" />
-            <span>পুনরায় লোড করুন</span>
+            <span>{t('common.retry')}</span>
           </Button>
         </div>
       ) : filteredNotices.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
           <FileText className="w-12 h-12 text-slate-300 mx-auto" />
-          <h4 className="text-base font-bold text-slate-800">কোনো নোটিশ পাওয়া যায়নি</h4>
+          <h4 className="text-base font-bold text-slate-800">{t('admin.notices.empty_notices')}</h4>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            নির্বাচিত ফিল্টারে কোনো নোটিশ নেই। নতুন নোটিশ লিখতে ওপরের বাটনে চাপুন।
+            {isEn ? 'No notices found matching the selected filter. Click the button above to write a notice.' : 'নির্বাচিত ফিল্টারে কোনো নোটিশ নেই। নতুন নোটিশ লিখতে ওপরের বাটনে চাপুন।'}
           </p>
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>শিরোনাম ও বিবরণ</TableHead>
-              <TableHead>ক্যাটাগরি</TableHead>
-              <TableHead>প্রাপক (Audience)</TableHead>
-              <TableHead>প্রকাশের তারিখ</TableHead>
-              <TableHead>স্ট্যাটাস</TableHead>
-              <TableHead className="text-right">অ্যাকশন</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredNotices.map((n) => {
-              const isPublished = n.status === 'PUBLISHED';
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50/80">
+                <TableHead className="font-semibold text-xs">{t('admin.notices.th_title')}</TableHead>
+                <TableHead className="font-semibold text-xs">{t('admin.expenses.th_category')}</TableHead>
+                <TableHead className="font-semibold text-xs">{isEn ? 'Audience' : 'প্রাপক'}</TableHead>
+                <TableHead className="font-semibold text-xs">{t('admin.notices.th_date')}</TableHead>
+                <TableHead className="font-semibold text-xs">{t('admin.notices.th_status')}</TableHead>
+                <TableHead className="font-semibold text-xs text-right">{t('common.actions')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredNotices.map((n) => {
+                const isPublished = n.status === 'PUBLISHED';
+                const displayTitle = isEn && n.titleEn ? n.titleEn : n.title;
+                const displayContent = isEn && n.contentEn ? n.contentEn : n.content;
 
-              return (
-                <TableRow key={n.id}>
-                  <TableCell className="max-w-md">
-                    <div className="flex items-center gap-2">
-                      {n.isPinned && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full shrink-0">
-                          <Pin className="w-3 h-3 text-emerald-700" />
-                          <span>পিনযুক্ত</span>
-                        </span>
-                      )}
-                      <span className="font-bold text-slate-900 text-sm">{n.title}</span>
-                    </div>
-                    {n.titleEn && (
-                      <p className="text-[11px] text-slate-400 italic">{n.titleEn}</p>
-                    )}
-                    <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{n.content}</p>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs font-semibold">
-                      {n.category}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${
-                        n.targetAudience === 'ADMIN'
-                          ? 'bg-purple-100 text-purple-800'
-                          : n.targetAudience === 'STUDENTS'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {n.targetAudience === 'ADMIN'
-                        ? 'অ্যাডমিন'
-                        : n.targetAudience === 'STUDENTS'
-                        ? 'শিক্ষার্থী'
-                        : 'সকলের জন্য'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-xs text-slate-500">
-                    {n.publishedAt ? new Date(n.publishedAt).toLocaleDateString('bn-BD') : 'খসড়া (অপ্রকাশিত)'}
-                  </TableCell>
-                  <TableCell>
-                    <span
-                      className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                        isPublished ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
-                      {isPublished ? 'প্রকাশিত' : 'খসড়া (Draft)'}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setViewNotice(n)}
-                        className="h-8 px-2 text-xs text-slate-700 hover:text-emerald-700"
-                        title="দেখুন"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenEdit(n)}
-                        className="h-8 px-2 text-xs text-slate-700 hover:text-emerald-700"
-                        title="সম্পাদনা"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={togglePublishMutation.isPending}
-                        onClick={() => togglePublishMutation.mutate(n.id)}
-                        className={`h-8 px-2 text-xs font-medium ${
-                          isPublished
-                            ? 'text-amber-700 hover:bg-amber-50'
-                            : 'text-emerald-700 hover:bg-emerald-50'
+                return (
+                  <TableRow key={n.id} className="hover:bg-slate-50/50">
+                    <TableCell className="max-w-md">
+                      <div className="flex items-center gap-2">
+                        {n.isPinned && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full shrink-0">
+                            <Pin className="w-3 h-3 text-emerald-700" />
+                            <span>{isEn ? 'Pinned' : 'পিনযুক্ত'}</span>
+                          </span>
+                        )}
+                        <span className="font-bold text-slate-900 text-sm">{displayTitle}</span>
+                      </div>
+                      <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">{displayContent}</p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs font-semibold">
+                        {n.category}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${
+                          n.targetAudience === 'ADMIN'
+                            ? 'bg-purple-100 text-purple-800'
+                            : n.targetAudience === 'STUDENTS'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-slate-100 text-slate-700'
                         }`}
                       >
-                        {isPublished ? 'খসড়া করুন' : 'প্রকাশ করুন'}
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDeleteTarget(n)}
-                        className="h-8 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
-                        title="মুছুন"
+                        {n.targetAudience === 'ADMIN'
+                          ? (isEn ? 'Admin' : 'অ্যাডমিন')
+                          : n.targetAudience === 'STUDENTS'
+                          ? (isEn ? 'Students' : 'শিক্ষার্থী')
+                          : (isEn ? 'All' : 'সকলের জন্য')}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-500">
+                      {n.publishedAt ? formatDate(n.publishedAt) : (isEn ? 'Draft' : 'খসড়া (অপ্রকাশিত)')}
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                          isPublished ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                        {isPublished ? (isEn ? 'Published' : 'প্রকাশিত') : (isEn ? 'Draft' : 'খসড়া')}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setViewNotice(n)}
+                          className="h-8 px-2 text-xs text-slate-700 hover:text-emerald-700"
+                          title={isEn ? 'View' : 'দেখুন'}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenEdit(n)}
+                          className="h-8 px-2 text-xs text-slate-700 hover:text-emerald-700"
+                          title={isEn ? 'Edit' : 'সম্পাদনা'}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={togglePublishMutation.isPending}
+                          onClick={() => togglePublishMutation.mutate(n.id)}
+                          className={`h-8 px-2 text-xs font-medium ${
+                            isPublished
+                              ? 'text-amber-700 hover:bg-amber-50'
+                              : 'text-emerald-700 hover:bg-emerald-50'
+                          }`}
+                        >
+                          {isPublished ? (isEn ? 'Unpublish' : 'খসড়া করুন') : (isEn ? 'Publish' : 'প্রকাশ করুন')}
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDeleteTarget(n)}
+                          className="h-8 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
+                          title={isEn ? 'Delete' : 'মুছুন'}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {/* Create Notice Modal Dialog */}
@@ -529,10 +539,10 @@ export const NoticesAdminPage: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
               <Plus className="w-5 h-5 text-emerald-600" />
-              <span>নতুন নোটিশ তৈরি করুন (Create Notice)</span>
+              <span>{t('admin.notices.dialog_create_title')}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              বাংলা ও ইংরেজি দ্বিভাষিক নোটিশ লিখুন এবং প্রকাশ বা খসড়া হিসেবে সংরক্ষণ করুন।
+              {isEn ? 'Write bilingual notice and publish or save as draft.' : 'বাংলা ও ইংরেজি দ্বিভাষিক নোটিশ লিখুন এবং প্রকাশ বা খসড়া হিসেবে সংরক্ষণ করুন।'}
             </DialogDescription>
           </DialogHeader>
 
@@ -546,12 +556,12 @@ export const NoticesAdminPage: React.FC = () => {
           <form onSubmit={handleCreateSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="create-title" className="text-xs font-semibold">
-                নোটিশের শিরোনাম (বাংলা) *
+                {t('admin.notices.title_bn')} *
               </Label>
               <Input
                 id="create-title"
                 required
-                placeholder="যেমন: গেট ক্লোজিং সময়সূচি পরিবর্তন"
+                placeholder={isEn ? 'e.g. Notice Title in Bangla' : 'যেমন: গেট ক্লোজিং সময়সূচি পরিবর্তন'}
                 value={newNotice.title}
                 onChange={(e) => setNewNotice({ ...newNotice, title: e.target.value })}
                 className="h-9 text-xs"
@@ -560,7 +570,7 @@ export const NoticesAdminPage: React.FC = () => {
 
             <div className="space-y-1.5">
               <Label htmlFor="create-title-en" className="text-xs font-semibold text-slate-500">
-                Notice Title (English — ঐচ্ছিক)
+                {t('admin.notices.title_en')}
               </Label>
               <Input
                 id="create-title-en"
@@ -573,50 +583,50 @@ export const NoticesAdminPage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">ক্যাটাগরি</Label>
+                <Label className="text-xs font-semibold">{t('student.complaints.category_field')}</Label>
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-ring"
                   value={newNotice.category}
                   onChange={(e) => setNewNotice({ ...newNotice, category: e.target.value })}
                 >
-                  <option value="সাধারণ">সাধারণ</option>
-                  <option value="ভর্তি">ভর্তি</option>
-                  <option value="ডাইনিং">ডাইনিং</option>
-                  <option value="ছুটি">ছুটি</option>
-                  <option value="জরুরি">জরুরি</option>
+                  <option value="GENERAL">{t('student.notices.filter_general')}</option>
+                  <option value="ADMISSION">{isEn ? 'Admission' : 'ভর্তি'}</option>
+                  <option value="DINING">{isEn ? 'Dining' : 'ডাইনিং'}</option>
+                  <option value="HOLIDAY">{isEn ? 'Holiday' : 'ছুটি'}</option>
+                  <option value="URGENT">{t('student.notices.filter_urgent')}</option>
                 </select>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">প্রাপক / অডিয়েন্স (Target Audience)</Label>
+                <Label className="text-xs font-semibold">{isEn ? 'Target Audience' : 'প্রাপক / অডিয়েন্স'}</Label>
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-ring"
                   value={newNotice.targetAudience}
                   onChange={(e) => setNewNotice({ ...newNotice, targetAudience: e.target.value as any })}
                 >
-                  <option value="ALL">সবার জন্য উন্মুক্ত (All Students & Staff)</option>
-                  <option value="STUDENTS">শুধুমাত্র শিক্ষার্থী (Students Only)</option>
-                  <option value="ADMIN">শুধুমাত্র অ্যাডমিন (Admin Only Announcements)</option>
+                  <option value="ALL">{isEn ? 'All Students & Staff' : 'সবার জন্য উন্মুক্ত (All Students & Staff)'}</option>
+                  <option value="STUDENTS">{isEn ? 'Students Only' : 'শুধুমাত্র শিক্ষার্থী (Students Only)'}</option>
+                  <option value="ADMIN">{isEn ? 'Admin Only Announcements' : 'শুধুমাত্র অ্যাডমিন (Admin Only Announcements)'}</option>
                 </select>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">প্রকাশের স্ট্যাটাস</Label>
+                <Label className="text-xs font-semibold">{t('common.status')}</Label>
                 <select
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-ring"
                   value={newNotice.status}
                   onChange={(e) => setNewNotice({ ...newNotice, status: e.target.value as any })}
                 >
-                  <option value="PUBLISHED">সরাসরি প্রকাশ করুন (Published)</option>
-                  <option value="DRAFT">খসড়া রাখুন (Draft - অপ্রকাশিত)</option>
+                  <option value="PUBLISHED">{isEn ? 'Publish Immediately' : 'সরাসরি প্রকাশ করুন (Published)'}</option>
+                  <option value="DRAFT">{isEn ? 'Save as Draft' : 'খসড়া রাখুন (Draft - অপ্রকাশিত)'}</option>
                 </select>
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="create-expiry" className="text-xs font-semibold text-slate-500">
-                  মেয়াদোত্তীর্ণের তারিখ (Expiry Date — ঐচ্ছিক)
+                  {isEn ? 'Expiry Date (Optional)' : 'মেয়াদোত্তীর্ণের তারিখ (ঐচ্ছিক)'}
                 </Label>
                 <Input
                   id="create-expiry"
@@ -638,19 +648,19 @@ export const NoticesAdminPage: React.FC = () => {
               />
               <Label htmlFor="create-pinned" className="text-xs font-medium cursor-pointer flex items-center gap-1">
                 <Pin className="w-3.5 h-3.5 text-emerald-600" />
-                <span>গুরুত্বপূর্ণ পিনযুক্ত নোটিশ হিসেবে শীর্ষে রাখুন</span>
+                <span>{t('admin.notices.pin_to_top')}</span>
               </Label>
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="create-content" className="text-xs font-semibold">
-                নোটিশের বিস্তারিত বক্তব্য (বাংলা) *
+                {t('admin.notices.content_bn')} *
               </Label>
               <Textarea
                 id="create-content"
                 required
                 rows={3}
-                placeholder="নোটিশের বিস্তারিত বক্তব্য এখানে লিখুন..."
+                placeholder={isEn ? 'Notice description in Bangla...' : 'নোটিশের বিস্তারিত বক্তব্য এখানে লিখুন...'}
                 value={newNotice.content}
                 onChange={(e) => setNewNotice({ ...newNotice, content: e.target.value })}
                 className="text-xs"
@@ -659,7 +669,7 @@ export const NoticesAdminPage: React.FC = () => {
 
             <div className="space-y-1.5">
               <Label htmlFor="create-content-en" className="text-xs font-semibold text-slate-500">
-                Notice Detailed Content (English — ঐচ্ছিক)
+                {t('admin.notices.content_en')}
               </Label>
               <Textarea
                 id="create-content-en"
@@ -679,21 +689,21 @@ export const NoticesAdminPage: React.FC = () => {
                 className="w-full sm:w-auto"
                 onClick={() => setCreateModalOpen(false)}
               >
-                বাতিল
+                {t('common.cancel')}
               </Button>
               <Button
                 type="submit"
                 size="sm"
                 disabled={createNoticeMutation.isPending}
-                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {createNoticeMutation.isPending ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                    <span>সংরক্ষণ হচ্ছে...</span>
+                    <span>{t('common.loading')}</span>
                   </>
                 ) : (
-                  <span>নোটিশ সংরক্ষণ করুন</span>
+                  <span>{t('common.save')}</span>
                 )}
               </Button>
             </DialogFooter>
@@ -708,7 +718,7 @@ export const NoticesAdminPage: React.FC = () => {
             <DialogHeader>
               <DialogTitle className="text-base font-bold flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-emerald-600" />
-                <span>নোটিশ সম্পাদনা (Edit Notice)</span>
+                <span>{isEn ? 'Edit Notice' : 'নোটিশ সম্পাদনা (Edit Notice)'}</span>
               </DialogTitle>
             </DialogHeader>
 
@@ -722,7 +732,7 @@ export const NoticesAdminPage: React.FC = () => {
             <form onSubmit={handleUpdateSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="edit-title" className="text-xs font-semibold">
-                  নোটিশের শিরোনাম (বাংলা) *
+                  {t('admin.notices.title_bn')} *
                 </Label>
                 <Input
                   id="edit-title"
@@ -735,7 +745,7 @@ export const NoticesAdminPage: React.FC = () => {
 
               <div className="space-y-1.5">
                 <Label htmlFor="edit-title-en" className="text-xs font-semibold text-slate-500">
-                  Notice Title (English)
+                  {t('admin.notices.title_en')}
                 </Label>
                 <Input
                   id="edit-title-en"
@@ -747,50 +757,50 @@ export const NoticesAdminPage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">ক্যাটাগরি</Label>
+                  <Label className="text-xs font-semibold">{t('student.complaints.category_field')}</Label>
                   <select
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-ring"
                     value={editForm.category}
                     onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                   >
-                    <option value="সাধারণ">সাধারণ</option>
-                    <option value="ভর্তি">ভর্তি</option>
-                    <option value="ডাইনিং">ডাইনিং</option>
-                    <option value="ছুটি">ছুটি</option>
-                    <option value="জরুরি">জরুরি</option>
+                    <option value="GENERAL">{t('student.notices.filter_general')}</option>
+                    <option value="ADMISSION">{isEn ? 'Admission' : 'ভর্তি'}</option>
+                    <option value="DINING">{isEn ? 'Dining' : 'ডাইনিং'}</option>
+                    <option value="HOLIDAY">{isEn ? 'Holiday' : 'ছুটি'}</option>
+                    <option value="URGENT">{t('student.notices.filter_urgent')}</option>
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">প্রাপক / অডিয়েন্স</Label>
+                  <Label className="text-xs font-semibold">{isEn ? 'Target Audience' : 'প্রাপক / অডিয়েন্স'}</Label>
                   <select
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-ring"
                     value={editForm.targetAudience}
                     onChange={(e) => setEditForm({ ...editForm, targetAudience: e.target.value as any })}
                   >
-                    <option value="ALL">সবার জন্য উন্মুক্ত (ALL)</option>
-                    <option value="STUDENTS">শুধুমাত্র শিক্ষার্থী (STUDENTS)</option>
-                    <option value="ADMIN">শুধুমাত্র অ্যাডমিন (ADMIN)</option>
+                    <option value="ALL">{isEn ? 'All' : 'সবার জন্য উন্মুক্ত (ALL)'}</option>
+                    <option value="STUDENTS">{isEn ? 'Students Only' : 'শুধুমাত্র শিক্ষার্থী (STUDENTS)'}</option>
+                    <option value="ADMIN">{isEn ? 'Admin Only' : 'শুধুমাত্র অ্যাডমিন (ADMIN)'}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">প্রকাশের স্ট্যাটাস</Label>
+                  <Label className="text-xs font-semibold">{t('common.status')}</Label>
                   <select
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-ring"
                     value={editForm.status}
                     onChange={(e) => setEditForm({ ...editForm, status: e.target.value as any })}
                   >
-                    <option value="PUBLISHED">প্রকাশিত (Published)</option>
-                    <option value="DRAFT">খসড়া (Draft)</option>
+                    <option value="PUBLISHED">{t('admin.notices.stat_published')}</option>
+                    <option value="DRAFT">{t('admin.notices.stat_draft')}</option>
                   </select>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label htmlFor="edit-expiry" className="text-xs font-semibold text-slate-500">
-                    মেয়াদোত্তীর্ণের তারিখ
+                    {isEn ? 'Expiry Date' : 'মেয়াদোত্তীর্ণের তারিখ'}
                   </Label>
                   <Input
                     id="edit-expiry"
@@ -812,13 +822,13 @@ export const NoticesAdminPage: React.FC = () => {
                 />
                 <Label htmlFor="edit-pinned" className="text-xs font-medium cursor-pointer flex items-center gap-1">
                   <Pin className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>গুরুত্বপূর্ণ পিনযুক্ত নোটিশ</span>
+                  <span>{t('admin.notices.pin_to_top')}</span>
                 </Label>
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="edit-content" className="text-xs font-semibold">
-                  নোটিশের বিস্তারিত বক্তব্য (বাংলা) *
+                  {t('admin.notices.content_bn')} *
                 </Label>
                 <Textarea
                   id="edit-content"
@@ -832,7 +842,7 @@ export const NoticesAdminPage: React.FC = () => {
 
               <div className="space-y-1.5">
                 <Label htmlFor="edit-content-en" className="text-xs font-semibold text-slate-500">
-                  Notice Detailed Content (English)
+                  {t('admin.notices.content_en')}
                 </Label>
                 <Textarea
                   id="edit-content-en"
@@ -851,21 +861,21 @@ export const NoticesAdminPage: React.FC = () => {
                   className="w-full sm:w-auto"
                   onClick={() => setEditNotice(null)}
                 >
-                  বাতিল
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   type="submit"
                   size="sm"
                   disabled={updateNoticeMutation.isPending}
-                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700"
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   {updateNoticeMutation.isPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                      <span>আপডেট হচ্ছে...</span>
+                      <span>{t('common.loading')}</span>
                     </>
                   ) : (
-                    <span>হালনাগাদ সংরক্ষণ করুন</span>
+                    <span>{t('common.save')}</span>
                   )}
                 </Button>
               </DialogFooter>
@@ -879,9 +889,11 @@ export const NoticesAdminPage: React.FC = () => {
         <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-base font-bold text-rose-700">নোটিশ মুছে ফেলার নিশ্চিতকরণ</DialogTitle>
+              <DialogTitle className="text-base font-bold text-rose-700">
+                {isEn ? 'Confirm Notice Deletion' : 'নোটিশ মুছে ফেলার নিশ্চিতকরণ'}
+              </DialogTitle>
               <DialogDescription className="text-xs text-slate-600">
-                আপনি কি নিশ্চিতভাবে এই নোটিশটি মুছে ফেলতে চান?
+                {isEn ? 'Are you sure you want to delete this notice?' : 'আপনি কি নিশ্চিতভাবে এই নোটিশটি মুছে ফেলতে চান?'}
               </DialogDescription>
             </DialogHeader>
 
@@ -897,7 +909,7 @@ export const NoticesAdminPage: React.FC = () => {
                 className="w-full sm:w-auto"
                 onClick={() => setDeleteTarget(null)}
               >
-                বাতিল
+                {t('common.cancel')}
               </Button>
               <Button
                 variant="destructive"
@@ -906,7 +918,7 @@ export const NoticesAdminPage: React.FC = () => {
                 className="w-full sm:w-auto"
                 onClick={() => deleteNoticeMutation.mutate(deleteTarget.id)}
               >
-                {deleteNoticeMutation.isPending ? 'মুছে ফেলা হচ্ছে...' : 'স্থায়ীভাবে মুছুন'}
+                {deleteNoticeMutation.isPending ? t('common.loading') : (isEn ? 'Delete Permanently' : 'স্থায়ীভাবে মুছুন')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -922,41 +934,38 @@ export const NoticesAdminPage: React.FC = () => {
                 <Badge variant="outline">{viewNotice.category}</Badge>
                 {viewNotice.isPinned && (
                   <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
-                    পিনযুক্ত
+                    {isEn ? 'Pinned' : 'পিনযুক্ত'}
                   </span>
                 )}
                 <span className="text-xs text-slate-400">
-                  {viewNotice.publishedAt ? new Date(viewNotice.publishedAt).toLocaleDateString('bn-BD') : 'খসড়া'}
+                  {viewNotice.publishedAt ? formatDate(viewNotice.publishedAt) : (isEn ? 'Draft' : 'খসড়া')}
                 </span>
               </div>
-              <DialogTitle className="text-lg leading-snug">{viewNotice.title}</DialogTitle>
-              {viewNotice.titleEn && (
-                <p className="text-xs text-slate-400 italic">{viewNotice.titleEn}</p>
+              <DialogTitle className="text-lg leading-snug">
+                {isEn && viewNotice.titleEn ? viewNotice.titleEn : viewNotice.title}
+              </DialogTitle>
+              {isEn && viewNotice.titleEn && viewNotice.title && (
+                <p className="text-xs text-slate-400 italic">{viewNotice.title}</p>
               )}
             </DialogHeader>
 
             <div className="space-y-3 py-2 text-xs text-slate-700">
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
-                <span className="font-bold text-slate-900 block">বিস্তারিত বক্তব্য:</span>
-                <p className="leading-relaxed whitespace-pre-line">{viewNotice.content}</p>
+                <span className="font-bold text-slate-900 block">{t('common.description', 'Details')}:</span>
+                <p className="leading-relaxed whitespace-pre-line">
+                  {isEn && viewNotice.contentEn ? viewNotice.contentEn : viewNotice.content}
+                </p>
               </div>
 
-              {viewNotice.contentEn && (
-                <div className="p-3.5 bg-slate-50/60 rounded-xl border border-slate-100 space-y-1">
-                  <span className="font-bold text-slate-600 block">English Content:</span>
-                  <p className="leading-relaxed whitespace-pre-line text-slate-600">{viewNotice.contentEn}</p>
-                </div>
-              )}
-
               <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-                <span>প্রাপক: <strong>{viewNotice.targetAudience}</strong></span>
-                <span>লেখক: <strong>{viewNotice.createdByUser?.name || 'Admin'}</strong></span>
+                <span>{isEn ? 'Audience:' : 'প্রাপক:'} <strong>{viewNotice.targetAudience}</strong></span>
+                <span>{isEn ? 'Author:' : 'লেখক:'} <strong>{viewNotice.createdByUser?.name || 'Admin'}</strong></span>
               </div>
             </div>
 
             <DialogFooter>
               <Button variant="outline" size="sm" onClick={() => setViewNotice(null)}>
-                বন্ধ করুন
+                {t('common.close')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -965,3 +974,5 @@ export const NoticesAdminPage: React.FC = () => {
     </div>
   );
 };
+
+export const NoticesAdminPage = AdminNoticesPage;

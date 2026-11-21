@@ -64,21 +64,24 @@ export const FacilitiesPage: React.FC = () => {
     {
       mealEn: 'Breakfast',
       mealBn: 'সকালের নাস্তা',
-      time: '৭:৩০ — ৯:০০ AM',
+      timeEn: '7:30 — 9:00 AM',
+      timeBn: '৭:৩০ — ৯:০০ AM',
       itemsEn: 'Paratha / Ruti, Egg / Dal, Mixed Vegetable, Tea',
       itemsBn: 'পরোটা / হাতে বানানো রুটি, ডিম / ডাল ভুনা, সবজি, চা',
     },
     {
       mealEn: 'Lunch',
       mealBn: 'দুপুরের খাবার',
-      time: '১:০০ — ২:৩০ PM',
+      timeEn: '1:00 — 2:30 PM',
+      timeBn: '১:০০ — ২:৩০ PM',
       itemsEn: 'Steamed Rice, Fresh Fish / Chicken / Beef, Lentils, Green Salad',
       itemsBn: 'ভাত, মাছ / মুরগি / গরুর মাংস, ঘন ডাল, সবুজ সালাদ',
     },
     {
       mealEn: 'Dinner',
       mealBn: 'রাতের খাবার',
-      time: '৮:০০ — ৯:৩০ PM',
+      timeEn: '8:00 — 9:30 PM',
+      timeBn: '৮:০০ — ৯:৩০ PM',
       itemsEn: 'Steamed Rice, Chicken Curry / Egg Curry, Seasonal Veggies, Dal',
       itemsBn: 'ভাত, চিকেন কারি / ডিম ভুনা, মৌসুমি সবজি, ডাল',
     },
@@ -145,7 +148,7 @@ export const FacilitiesPage: React.FC = () => {
                     {isEn ? schedule.mealEn : schedule.mealBn}
                   </h4>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                    {schedule.time}
+                    {isEn ? schedule.timeEn : schedule.timeBn}
                   </span>
                 </div>
                 <p className="text-xs text-gray-600 leading-relaxed">
@@ -157,7 +160,11 @@ export const FacilitiesPage: React.FC = () => {
 
           <div className="p-4 bg-emerald-50/80 rounded-xl border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>হোস্টেল মিল মেস সিস্টেমের মাধ্যমে পরিচালিত হয়। শিক্ষার্থীরা প্রয়োজন অনুযায়ী মিল অন/অফ করতে পারেন।</span>
+            <span>
+              {isEn
+                ? 'Hostel meals are managed through a mess system. Students can turn meals ON/OFF as needed.'
+                : 'হোস্টেল মিল মেস সিস্টেমের মাধ্যমে পরিচালিত হয়। শিক্ষার্থীরা প্রয়োজন অনুযায়ী মিল অন/অফ করতে পারেন।'}
+            </span>
           </div>
         </div>
       </section>

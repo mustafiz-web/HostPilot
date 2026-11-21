@@ -31,6 +31,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { apiClient } from '@/lib/api-client';
+import { formatDate } from '@/lib/formatters';
 
 interface StudentProfileResponse {
   id: string;
@@ -123,7 +124,7 @@ export const StudentProfilePage: React.FC = () => {
       }, 1500);
     },
     onError: (err: any) => {
-      setEditError(err.message || 'প্রোফাইল আপডেট করতে সমস্যা হয়েছে');
+      setEditError(err.message || t('common.error_occurred', 'Failed to update profile'));
     },
   });
 
@@ -152,13 +153,13 @@ export const StudentProfilePage: React.FC = () => {
     return (
       <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4">
         <AlertCircle className="w-12 h-12 text-rose-500 mx-auto" />
-        <h3 className="text-lg font-bold text-slate-800">প্রোফাইল তথ্য লোড করা যায়নি</h3>
+        <h3 className="text-lg font-bold text-slate-800">{t('admin.dashboard.load_error')}</h3>
         <p className="text-xs text-slate-500 max-w-sm mx-auto">
-          {(error as any)?.message || 'সার্ভার থেকে শিক্ষার্থীর প্রোফাইল সংগ্রহে সমস্যা হয়েছে।'}
+          {(error as any)?.message || t('common.error_occurred', 'Failed to fetch student data from server.')}
         </p>
         <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
           <RefreshCw className="w-4 h-4" />
-          <span>পুনরায় লোড করুন</span>
+          <span>{t('common.retry')}</span>
         </Button>
       </div>
     );
@@ -179,7 +180,7 @@ export const StudentProfilePage: React.FC = () => {
             {t('student.profile.subtitle')}
           </p>
         </div>
-        <Button onClick={handleOpenEdit} className="gap-2 shadow-xs self-start sm:self-auto bg-emerald-600 hover:bg-emerald-700">
+        <Button onClick={handleOpenEdit} className="gap-2 shadow-xs self-start sm:self-auto bg-emerald-600 hover:bg-emerald-700 text-white">
           <Edit className="w-4 h-4" />
           <span>{t('student.profile.btn_edit')}</span>
         </Button>
@@ -215,12 +216,8 @@ export const StudentProfilePage: React.FC = () => {
             <div className="flex items-center gap-2 text-slate-600">
               <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>
-                নিবন্ধনের তারিখ:{' '}
-                {new Date(profile.createdAt).toLocaleDateString('bn-BD', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                })}
+                {t('student.profile.registration_date', 'Registration Date')}:{' '}
+                {formatDate(profile.createdAt)}
               </span>
             </div>
           </div>
@@ -228,13 +225,13 @@ export const StudentProfilePage: React.FC = () => {
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-left">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-800 mb-1">
               <Bed className="w-4 h-4 text-emerald-600" />
-              <span>বর্তমান সিট বরাদ্দ</span>
+              <span>{t('student.dashboard.active_seat')}</span>
             </div>
             <p className="text-xs text-slate-600">
               {profile.activeAllocation ? (
-                `রুম ${profile.activeAllocation.room?.roomNumber || '১০১'} (বেড ${profile.activeAllocation.bed?.bedCode || 'A'})`
+                `${t('student.room.room_number', { number: profile.activeAllocation.room?.roomNumber || '101' })} (${t('student.room.bed')} ${profile.activeAllocation.bed?.bedCode || 'A'})`
               ) : (
-                <span className="text-slate-400 italic">কোনো সিট বরাদ্দ নেই</span>
+                <span className="text-slate-400 italic">{t('student.room.not_allocated')}</span>
               )}
             </p>
           </div>
@@ -246,27 +243,27 @@ export const StudentProfilePage: React.FC = () => {
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
             <div className="flex items-center gap-2 border-b pb-3">
               <GraduationCap className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-bold text-base text-slate-900">একাডেমিক তথ্য (Academic Details)</h3>
+              <h3 className="font-bold text-base text-slate-900">{t('student.profile.academic_info')}</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-slate-400 block mb-0.5">রোল / রেজিস্ট্রেশন নম্বর:</span>
+                <span className="text-slate-400 block mb-0.5">{t('student.profile.roll_number')}:</span>
                 <span className="font-mono font-bold text-slate-800 text-sm">
                   {profile.rollNumber}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 block mb-0.5">বিভাগ:</span>
+                <span className="text-slate-400 block mb-0.5">{t('student.profile.department')}:</span>
                 <span className="font-bold text-slate-800 text-sm">
                   {profile.department}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 block mb-0.5">শিক্ষাবর্ষ (Session):</span>
+                <span className="text-slate-400 block mb-0.5">{t('student.profile.session')}:</span>
                 <span className="font-bold text-slate-800">{profile.session}</span>
               </div>
               <div>
-                <span className="text-slate-400 block mb-0.5">ব্যাচ (Batch):</span>
+                <span className="text-slate-400 block mb-0.5">{t('student.profile.batch')}:</span>
                 <span className="font-bold text-slate-800">{profile.batch}</span>
               </div>
             </div>
@@ -276,18 +273,18 @@ export const StudentProfilePage: React.FC = () => {
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
             <div className="flex items-center gap-2 border-b pb-3">
               <Shield className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-bold text-base text-slate-900">ব্যক্তিগত ও অভিভাবকের তথ্য</h3>
+              <h3 className="font-bold text-base text-slate-900">{t('student.profile.personal_info')}</h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-slate-400 block mb-0.5">রক্তের গ্রুপ (Blood Group):</span>
+                <span className="text-slate-400 block mb-0.5">{t('student.profile.blood_group')}:</span>
                 <span className="font-bold text-rose-600 text-sm flex items-center gap-1">
                   <Heart className="w-3.5 h-3.5 fill-rose-600 text-rose-600" />
-                  {profile.bloodGroup || 'অজানা'}
+                  {profile.bloodGroup || 'N/A'}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 block mb-0.5">যোগাযোগ নম্বর:</span>
+                <span className="text-slate-400 block mb-0.5">{t('student.profile.phone')}:</span>
                 <span className="font-mono font-bold text-slate-800 text-sm">
                   {profile.phone}
                 </span>
@@ -295,13 +292,13 @@ export const StudentProfilePage: React.FC = () => {
               {primaryGuardian && (
                 <>
                   <div>
-                    <span className="text-slate-400 block mb-0.5">অভিভাবকের নাম ও সম্পর্ক:</span>
+                    <span className="text-slate-400 block mb-0.5">{t('student.profile.guardian_name')}:</span>
                     <span className="font-bold text-slate-800">
                       {primaryGuardian.name} ({primaryGuardian.relationship})
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block mb-0.5">অভিভাবকের মোবাইল:</span>
+                    <span className="text-slate-400 block mb-0.5">{t('student.profile.guardian_phone')}:</span>
                     <span className="font-mono font-bold text-slate-800 text-sm">
                       {primaryGuardian.phone}
                     </span>
@@ -313,7 +310,7 @@ export const StudentProfilePage: React.FC = () => {
             <div className="pt-3 border-t border-slate-100 text-xs">
               <span className="text-slate-400 block mb-0.5 flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                <span>স্থায়ী ঠিকানা (Permanent Address):</span>
+                <span>{t('student.profile.address')}:</span>
               </span>
               <p className="text-slate-700 font-medium leading-relaxed">
                 {profile.address}
@@ -329,17 +326,17 @@ export const StudentProfilePage: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
               <Edit className="w-5 h-5 text-emerald-600" />
-              <span>যোগাযোগ তথ্য সম্পাদনা</span>
+              <span>{t('student.profile.btn_edit')}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500">
-              শিক্ষার্থী সরাসরি মোবাইল নম্বর, ঠিকানা ও রক্তের গ্রুপ আপডেট করতে পারবেন।
+              {t('student.profile.edit_note')}
             </DialogDescription>
           </DialogHeader>
 
           {editSuccess ? (
             <div className="py-6 text-center space-y-2">
               <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
-              <h4 className="text-sm font-bold text-slate-800">প্রোফাইল সফলভাবে আপডেট হয়েছে!</h4>
+              <h4 className="text-sm font-bold text-slate-800">{t('common.success', 'Profile updated successfully!')}</h4>
             </div>
           ) : (
             <form onSubmit={handleEditSubmit} className="space-y-4 py-2 text-xs">
@@ -352,7 +349,7 @@ export const StudentProfilePage: React.FC = () => {
 
               <div className="space-y-1">
                 <Label htmlFor="edit-phone" className="text-xs">
-                  মোবাইল নম্বর
+                  {t('student.profile.phone')}
                 </Label>
                 <Input
                   id="edit-phone"
@@ -365,7 +362,7 @@ export const StudentProfilePage: React.FC = () => {
 
               <div className="space-y-1">
                 <Label htmlFor="edit-blood" className="text-xs">
-                  রক্তের গ্রুপ
+                  {t('student.profile.blood_group')}
                 </Label>
                 <Input
                   id="edit-blood"
@@ -378,7 +375,7 @@ export const StudentProfilePage: React.FC = () => {
 
               <div className="space-y-1">
                 <Label htmlFor="edit-address" className="text-xs">
-                  স্থায়ী ঠিকানা
+                  {t('student.profile.address')}
                 </Label>
                 <Input
                   id="edit-address"
@@ -391,21 +388,21 @@ export const StudentProfilePage: React.FC = () => {
 
               <DialogFooter className="gap-2 pt-2 flex-col sm:flex-row">
                 <Button type="button" variant="outline" size="sm" onClick={() => setEditModalOpen(false)}>
-                  বাতিল
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   type="submit"
                   size="sm"
                   disabled={updateProfileMutation.isPending}
-                  className="bg-emerald-600 hover:bg-emerald-700"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   {updateProfileMutation.isPending ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                      <span>সংরক্ষণ হচ্ছে...</span>
+                      <span>{t('common.loading')}</span>
                     </>
                   ) : (
-                    <span>পরিবর্তন সংরক্ষণ করুন</span>
+                    <span>{t('common.save')}</span>
                   )}
                 </Button>
               </DialogFooter>
