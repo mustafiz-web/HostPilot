@@ -105,6 +105,8 @@ export const AdmissionsPage: React.FC = () => {
     },
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['admin-admissions'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-metrics'] });
       if (selectedApp?.id === updated.id) {
         setSelectedApp(updated);
       }
