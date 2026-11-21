@@ -21,11 +21,19 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LanguageSwitcher } from '@/components/shared/language-switcher';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from './auth-context';
 
 export const RegisterPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const isEn = i18n.language?.startsWith('en');
   const navigate = useNavigate();
+  const { isAuthenticated, isLoading: isAuthLoading, role: userRole } = useAuth();
+
+  React.useEffect(() => {
+    if (!isAuthLoading && isAuthenticated && userRole) {
+      navigate(userRole === 'ADMIN' ? '/admin' : '/student', { replace: true });
+    }
+  }, [isAuthLoading, isAuthenticated, userRole, navigate]);
 
   const [formData, setFormData] = useState({
     name: '',

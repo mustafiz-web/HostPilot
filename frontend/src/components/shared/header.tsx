@@ -1,14 +1,23 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Building2, Menu, X, LogIn, UserPlus } from 'lucide-react';
+import { Building2, Menu, X, LogIn, UserPlus, LogOut, Shield, User } from 'lucide-react';
 import { LanguageSwitcher } from './language-switcher';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/features/auth/auth-context';
 
 export const Header: React.FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+    setMobileMenuOpen(false);
+  };
 
   const navLinks = [
     { href: '/', label: t('nav.home') },
@@ -60,23 +69,49 @@ export const Header: React.FC = () => {
         {/* Action Controls */}
         <div className="hidden lg:flex items-center gap-2 xl:gap-3">
           <LanguageSwitcher />
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="gap-1.5 font-medium border-emerald-600 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
-          >
-            <Link to="/register">
-              <UserPlus className="w-4 h-4 text-emerald-600" />
-              <span>{t('nav.register')}</span>
-            </Link>
-          </Button>
-          <Button asChild size="sm" className="gap-1.5 font-medium shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white">
-            <Link to="/login">
-              <LogIn className="w-4 h-4" />
-              <span>{t('nav.login')}</span>
-            </Link>
-          </Button>
+          {isAuthenticated && user ? (
+            <>
+              <Button
+                asChild
+                size="sm"
+                className="gap-1.5 font-medium shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                <Link to={user.role === 'ADMIN' ? '/admin' : '/student'}>
+                  {user.role === 'ADMIN' ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                  <span>{t('nav.dashboard')}</span>
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLogout}
+                className="gap-1.5 font-medium border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>{t('nav.logout')}</span>
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="gap-1.5 font-medium border-emerald-600 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
+              >
+                <Link to="/register">
+                  <UserPlus className="w-4 h-4 text-emerald-600" />
+                  <span>{t('nav.register')}</span>
+                </Link>
+              </Button>
+              <Button asChild size="sm" className="gap-1.5 font-medium shadow-xs bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Link to="/login">
+                  <LogIn className="w-4 h-4" />
+                  <span>{t('nav.login')}</span>
+                </Link>
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile Hamburger Toggle */}
@@ -111,22 +146,46 @@ export const Header: React.FC = () => {
             </Link>
           ))}
           <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
-            <Button
-              asChild
-              variant="outline"
-              className="w-full gap-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50"
-            >
-              <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
-                <UserPlus className="w-4 h-4 text-emerald-600" />
-                <span>{t('nav.register')} (Create Account)</span>
-              </Link>
-            </Button>
-            <Button asChild className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
-              <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
-                <LogIn className="w-4 h-4" />
-                <span>{t('nav.login')}</span>
-              </Link>
-            </Button>
+            {isAuthenticated && user ? (
+              <>
+                <Button asChild className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+                  <Link
+                    to={user.role === 'ADMIN' ? '/admin' : '/student'}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {user.role === 'ADMIN' ? <Shield className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                    <span>{t('nav.dashboard')} ({user.role === 'ADMIN' ? 'Admin' : 'Student'})</span>
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleLogout}
+                  className="w-full gap-2 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>{t('nav.logout')}</span>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full gap-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
+                    <UserPlus className="w-4 h-4 text-emerald-600" />
+                    <span>{t('nav.register')} (Create Account)</span>
+                  </Link>
+                </Button>
+                <Button asChild className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
+                    <LogIn className="w-4 h-4" />
+                    <span>{t('nav.login')}</span>
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}

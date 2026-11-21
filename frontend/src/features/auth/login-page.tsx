@@ -25,7 +25,17 @@ export const LoginPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, isAuthenticated, isLoading: isAuthLoading, role: userRole } = useAuth();
+
+  // If already authenticated, redirect to their role dashboard immediately
+  React.useEffect(() => {
+    if (!isAuthLoading && isAuthenticated && userRole) {
+      const destination =
+        (location.state as any)?.from?.pathname ||
+        (userRole === 'ADMIN' ? '/admin' : '/student');
+      navigate(destination, { replace: true });
+    }
+  }, [isAuthLoading, isAuthenticated, userRole, location.state, navigate]);
 
   const [role, setRole] = useState<'ADMIN' | 'STUDENT'>('STUDENT');
   const [email, setEmail] = useState('');
@@ -33,6 +43,15 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-3">
+        <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+        <p className="text-sm font-medium text-slate-600">যাচাইকরণ চলছে (Checking session)...</p>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -41,9 +41,21 @@ const API_BASE_URL =
 export const TOKEN_STORAGE_KEY = 'hp_auth_token';
 
 class ApiClient {
+  private inMemoryToken: string | null = null;
+
+  public setToken(token: string | null): void {
+    this.inMemoryToken = token;
+  }
+
+  public getToken(): string | null {
+    return this.inMemoryToken;
+  }
+
   private getAuthHeader(): Record<string, string> {
-    const token = localStorage.getItem(TOKEN_STORAGE_KEY);
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    if (this.inMemoryToken) {
+      return { Authorization: `Bearer ${this.inMemoryToken}` };
+    }
+    return {};
   }
 
   private async request<T>(
@@ -79,9 +91,9 @@ class ApiClient {
         json.error?.message || response.statusText || 'একটি অপ্রত্যাশিত ত্রুটি ঘটেছে';
       const details = json.error?.details;
 
-      // Handle 401 Unauthorized globally: clear stale token
+      // Handle 401 Unauthorized globally: clear stale in-memory token
       if (response.status === 401) {
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
+        this.inMemoryToken = null;
       }
 
       throw new ApiError(message, code, response.status, details);

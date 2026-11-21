@@ -13,12 +13,14 @@ import {
   Calendar,
   UserPlus,
   LogIn,
+  LayoutDashboard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiClient } from '@/lib/api-client';
+import { useAuth } from '@/features/auth/auth-context';
 
 interface RealRoom {
   id: string;
@@ -85,6 +87,7 @@ function getRoomMetadata(type: string) {
 export const HomePage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const isEn = i18n.language?.startsWith('en');
+  const { user, isAuthenticated } = useAuth();
 
   // Fetch real rooms from MySQL
   const { data: roomsResponse, isLoading: isLoadingRooms } = useQuery({
@@ -175,21 +178,39 @@ export const HomePage: React.FC = () => {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4"
           >
-            <Button asChild size="lg" className="w-full sm:w-auto gap-2 shadow-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white">
-              <Link to="/register">
-                <UserPlus className="w-4 h-4" />
-                <span>{isEn ? 'Register as Student' : 'শিক্ষার্থী অ্যাকাউন্ট তৈরি'}</span>
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="w-full sm:w-auto font-medium border-emerald-600 text-emerald-800 hover:bg-emerald-50">
-              <Link to="/login">
-                <LogIn className="w-4 h-4" />
-                <span>{isEn ? 'Student / Admin Login' : 'লগইন করুন'}</span>
-              </Link>
-            </Button>
-            <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto font-medium text-slate-700">
-              <Link to="/rooms">{t('hero.cta_explore')}</Link>
-            </Button>
+            {isAuthenticated && user ? (
+              <>
+                <Button asChild size="lg" className="w-full sm:w-auto gap-2 shadow-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white">
+                  <Link to={user.role === 'ADMIN' ? '/admin' : '/student'}>
+                    <LayoutDashboard className="w-4 h-4" />
+                    <span>{isEn ? `Go to ${user.role === 'ADMIN' ? 'Admin' : 'Student'} Dashboard` : 'ড্যাশবোর্ডে প্রবেশ করুন'}</span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto font-medium border-emerald-600 text-emerald-800 hover:bg-emerald-50">
+                  <Link to="/rooms">
+                    <span>{t('hero.cta_explore')}</span>
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button asChild size="lg" className="w-full sm:w-auto gap-2 shadow-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white">
+                  <Link to="/register">
+                    <UserPlus className="w-4 h-4" />
+                    <span>{isEn ? 'Register as Student' : 'শিক্ষার্থী অ্যাকাউন্ট তৈরি'}</span>
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="w-full sm:w-auto font-medium border-emerald-600 text-emerald-800 hover:bg-emerald-50">
+                  <Link to="/login">
+                    <LogIn className="w-4 h-4" />
+                    <span>{isEn ? 'Student / Admin Login' : 'লগইন করুন'}</span>
+                  </Link>
+                </Button>
+                <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto font-medium text-slate-700">
+                  <Link to="/rooms">{t('hero.cta_explore')}</Link>
+                </Button>
+              </>
+            )}
           </motion.div>
         </div>
       </section>

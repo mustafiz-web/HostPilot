@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient, TOKEN_STORAGE_KEY } from '@/lib/api-client';
 
@@ -16,7 +16,7 @@ export interface UserProfile {
 
 interface AuthContextType {
   user: UserProfile | null;
-  token: string | null;
+  token?: string | null;
   role: 'ADMIN' | 'STUDENT' | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -29,31 +29,38 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
-  const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem(TOKEN_STORAGE_KEY);
-  });
 
-  // Fetch current user via TanStack Query
+  // Clear any legacy insecure token from localStorage to guarantee secure cookie persistence
+  useEffect(() => {
+    try {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+    } catch {
+      // Safe ignore
+    }
+  }, []);
+
+  // Fetch current user via TanStack Query using persistent HttpOnly cookie
   const {
     data: currentUserData,
-    isLoading: isFetchingUser,
+    isLoading: isCheckingUser,
     refetch,
   } = useQuery({
-    queryKey: ['auth', 'me', token],
+    queryKey: ['auth', 'me'],
     queryFn: async () => {
-      if (!token) return null;
       try {
         const res = await apiClient.get<UserProfile>('/auth/me');
-        return res.data;
-      } catch (err) {
-        // If 401/invalid token, wipe it
-        localStorage.removeItem(TOKEN_STORAGE_KEY);
-        setToken(null);
+        if (res.success && res.data) {
+          return res.data;
+        }
+        return null;
+      } catch {
+        // 401 or network error when guest or logged out
         return null;
       }
     },
-    enabled: !!token,
     staleTime: 5 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 
   const user = currentUserData || null;
@@ -70,9 +77,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return res.data;
     },
     onSuccess: (data) => {
-      localStorage.setItem(TOKEN_STORAGE_KEY, data.token);
-      setToken(data.token);
-      queryClient.setQueryData(['auth', 'me', data.token], data.user);
+      apiClient.setToken(data.token);
+      queryClient.setQueryData(['auth', 'me'], data.user);
     },
   });
 
@@ -90,18 +96,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // Ignore network errors on logout
     } finally {
-      localStorage.removeItem(TOKEN_STORAGE_KEY);
-      setToken(null);
-      queryClient.clear();
+      apiClient.setToken(null);
+      queryClient.setQueryData(['auth', 'me'], null);
+      queryClient.removeQueries({ queryKey: ['auth', 'me'] });
     }
   }, [queryClient]);
 
   const value: AuthContextType = {
     user,
-    token,
+    token: apiClient.getToken(),
     role,
     isAuthenticated,
-    isLoading: !!token && isFetchingUser,
+    isLoading: isCheckingUser,
     login,
     logout,
     refetchUser: refetch,
