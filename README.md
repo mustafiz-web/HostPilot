@@ -76,4 +76,3 @@ For detailed specifications, consult the files in `docs/`:
 - MD. Shaharia Rizve Srabon (Roll: 866473)
 - Fahmena Afrin Ritu (Roll: 866433)
 - Mst Fahima (Roll: 866437)
-- Ritu
