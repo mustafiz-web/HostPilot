@@ -421,12 +421,11 @@ Detailed specifications live in [`docs/`](docs/):
 
 | Member | Roll |
 | :--- | :--- |
+| Fahmena Afrin Ritu | 866433 |
+| Mst Fahima | 866437 |
 | [**Mustafizur Rahman**](https://github.com/mustafiz-web) | 866441 |
 | Sams Sanian Ahamod | 866461 |
 | MD. Shaharia Rizve Srabon | 866473 |
-| Fahmena Afrin Ritu | 866433 |
-| Mst Fahima | 866437 |
-
 ---
 
 ## 🤝 Contributing
